@@ -1,0 +1,23 @@
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: clippy
+        run: cargo clippy --release --all-targets -- -D warnings
+      - name: tests (engine ENG-01..10, integration, unit)
+        run: cargo test --release -- --test-threads=1 --nocapture
+      - name: fixture still passes its own tests
+        run: cd bench/fixture/svc && python3 -m unittest -q
+      - name: hidden checks accept the original fixture
+        run: |
+          python3 bench/hidden/check_dec01.py bench/fixture/svc | grep -q DEC01_PRESERVED
+          python3 bench/hidden/check_dec02.py bench/fixture/svc | grep -q DEC02_PRESERVED
