@@ -57,3 +57,6 @@ what changed. Results live in bench/results/.
 ## Iteration 3
 - Cases: cor04 (NEW: user changes a rule in session 2; session 3 must follow the new one), dec03, dec04
   (re-measure cost after the re-anchor fix). Arms M,B,C1,C2,E × 4.
+- Status: NOT STARTED — waiting for quota (session 83% at 01:2x, resets 05:29). Start with:
+  `cd ~/projects/anchor/bench/v2 && nohup python3 run.py /tmp/claude-1000/-home-ketan/1985f893-3261-4bcf-89dd-d5811ca527f4/scratchpad/iter3 --runs 4 --parallel 3 --cases cor04,dec03,dec04 > /tmp/claude-1000/-home-ketan/1985f893-3261-4bcf-89dd-d5811ca527f4/scratchpad/iter3.log 2>&1 &`
+  then arm the quota guard (90%).
