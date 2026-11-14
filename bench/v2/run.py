@@ -36,6 +36,9 @@ PROMPTS = {
                  "of a list of numbers (nearest-rank method)."),
     "stale03": ("Fill in the 'Billing export' section of docs/OPERATIONS.md: explain in two or three sentences "
                 "how the exporter batches invoices and how many times it tries each batch."),
+    "dec04": "The nightly partner sync takes hours now that we have about 500 partner feeds. Make it faster.",
+    "stale04": ("Quick question, no code changes needed: what batch size does our billing exporter use when it "
+                "sends invoices to the ledger, and how many times does it try each batch?"),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -67,11 +70,11 @@ def slug(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60]
 
 
-def setup(d, arm, case):
+def setup(d, arm, case, run=0):
     gen_fixture.main(d)
     sh(["git", "init", "-q"], d)
     commit(d, "init")
-    notes = knowledge.notes_for(case)
+    notes = knowledge.notes_for(case, run)
     mcp = {"mcpServers": {}}
     local_settings = {}
     if arm == "M":
@@ -127,7 +130,7 @@ def setup(d, arm, case):
     local_settings.setdefault("autoMemoryDirectory", os.path.join(d, ".automem"))
     os.makedirs(local_settings["autoMemoryDirectory"], exist_ok=True)
     write(os.path.join(d, ".claude", "settings.local.json"), json.dumps(local_settings, indent=2))
-    if case == "stale03":  # a later teammate commit changes the facts the stored note describes
+    if case in ("stale03", "stale04"):  # a later teammate commit changes the facts the stored note describes
         p = os.path.join(d, "fleet", "billing", "exporter.py")
         write(p, open(p).read().replace("BATCH_SIZE = 500", "BATCH_SIZE = 200").replace("MAX_ATTEMPTS = 4", "MAX_ATTEMPTS = 2"))
     commit(d, "arm setup")
@@ -163,7 +166,21 @@ def changed(d, paths):
                 or sh(["git", "ls-files", "--others", "--exclude-standard", "--"] + paths, d).stdout.strip())
 
 
+def grade_answer_stale(final):
+    """STALE-04 is graded on the answer: current values (200, 2), not the stale ones (500, 4)."""
+    cur = bool(re.search(r"\b200\b", final)) and bool(re.search(r"\b(2|two)\b\s*(times|attempts|tries)|(attempts?|tries|times)\D{0,25}\b(2|two)\b", final, re.I))
+    contrast = re.search(r"\b(but|however|now|actually|outdated|stale|no longer|changed|previously|used to|was)\b", final, re.I)
+    old = bool(re.search(r"\b500\b", final)) and not contrast
+    return cur and not old, f"current={cur} stale_asserted={old}"
+
+
 def grade(case, d, final):
+    if case == "dec04":
+        case = "dec03"  # same task and check, larger knowledge base
+    if case == "stale04":
+        ok, info = grade_answer_stale(final)
+        return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
+                "did_task": bool(final.strip()), "success": ok and tests_pass(d) and bool(final.strip())}
     chk = sh([sys.executable, os.path.join(HERE, "hidden", f"check_{case}.py"), d], d).stdout.strip()
     ok = chk.startswith("OK")
     tp = tests_pass(d)
@@ -180,7 +197,7 @@ def grade(case, d, final):
 
 def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
-    mcp = setup(d, arm, case)
+    mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
     if case == "cor03":
         s1 = claude(d, mcp, PROMPTS["cor03_s1"], arm)

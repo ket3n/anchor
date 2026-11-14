@@ -21,3 +21,18 @@ what changed. Results live in bench/results/.
      exporter use?"): native memory has no invalidation; Anchor flags stale.
   3. Cost: dec03 shows E spends more tokens than M; investigate what Anchor injects there (events.jsonl) and trim.
 - 20:37 tick: waiting for quota (session 92%, week 63%; resets 00:10). Note for ticks: check the benchmark with `pgrep -af "python3 run.py"` — `pgrep -f "run.py /tmp/claude"` matches its own shell and falsely reports RUNNING.
+- 00:37 quota reset; resumed v2 (29 runs left) with guard at 90%.
+
+## Iteration 2 — prepared during iteration 1 (not yet run)
+- Finding from v2 events.jsonl: Anchor's prompt hook injected 22 items (~1,100 tokens) on the DEC-03 prompt;
+  21 were distractors sharing the word "partner". Fix: relative cutoff (>= 0.75 of best match) and max 5
+  knowledge items per hook; explicit recall keeps 0.5. ENG-12 added: 1 item, target first, 48 tokens.
+  Built in target-dev so the running benchmark keeps the iteration-1 binary; committed, not yet pushed/installed.
+- New cases (added, existing cases untouched; v2 distractor set verified identical):
+  - DEC-04: DEC-03 task with a 400-note knowledge base; the target's position is drawn uniformly at random
+    per run (seed 1000+run) so no arm is favoured by placement.
+  - STALE-04: quick question answered from memory, no code change ("what batch size / how many tries?");
+    graded on the answer: must state 200 and 2; mentioning 500 only counts against an arm when nothing in the
+    answer marks it as outdated (same grader for all arms; grader unit-checked on 5 phrasings).
+- Plan: after v2 completes, install the new binary, run iteration 2 = dec04, stale04, dec03 (re-check tokens),
+  neu01 across M,B,C1,C2,E × 4 runs.
