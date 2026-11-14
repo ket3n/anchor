@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Runs the same gate as CI before any push. Skip once with: git push --no-verify
+set -euo pipefail
+run() { if command -v cargo >/dev/null; then cargo "$@"; else mise exec rust -- cargo "$@"; fi; }
+echo "pre-push: clippy"; run clippy --release --all-targets -q -- -D warnings
+echo "pre-push: tests";  run test --release -q -- --test-threads=1
