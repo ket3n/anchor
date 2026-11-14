@@ -157,11 +157,11 @@ pub fn stem(t: &str) -> Option<String> {
         return None;
     }
     for suf in ["ations", "ation", "ings", "ing", "ers", "ies", "ied", "ed", "es", "er", "ly", "s"] {
-        if let Some(base) = t.strip_suffix(suf) {
-            if base.len() >= 4 {
-                // the word index keeps prefix indexes for 4–8 chars
-                return Some(base.chars().take(8).collect());
-            }
+        // the word index keeps prefix indexes for 4–8 chars
+        if let Some(base) = t.strip_suffix(suf)
+            && base.len() >= 4
+        {
+            return Some(base.chars().take(8).collect());
         }
     }
     None

@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS shown (
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 "#;
 
+type FtsRow = (String, String, String, Option<String>, Option<String>, Option<String>, String, String);
+
 pub struct Db {
     pub conn: Connection,
     pub root: PathBuf,
@@ -180,7 +182,7 @@ impl Db {
                 "DROP TABLE IF EXISTS fts_words; DROP TABLE IF EXISTS fts_tri; DELETE FROM fts_map;",
             )?;
             self.conn.execute_batch(SCHEMA)?;
-            let rows: Vec<(String, String, String, Option<String>, Option<String>, Option<String>, String, String)> = {
+            let rows: Vec<FtsRow> = {
                 let mut st = self.conn.prepare(
                     "SELECT id, kind, content, summary, symbol, path, tags, origin FROM nodes WHERE kind != 'file'",
                 )?;
