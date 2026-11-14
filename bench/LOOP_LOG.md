@@ -20,3 +20,4 @@ what changed. Results live in bench/results/.
   2. STALE-04: quick question answered from memory without editing code ("what batch size does the billing
      exporter use?"): native memory has no invalidation; Anchor flags stale.
   3. Cost: dec03 shows E spends more tokens than M; investigate what Anchor injects there (events.jsonl) and trim.
+- 20:37 tick: waiting for quota (session 92%, week 63%; resets 00:10). Note for ticks: check the benchmark with `pgrep -af "python3 run.py"` — `pgrep -f "run.py /tmp/claude"` matches its own shell and falsely reports RUNNING.

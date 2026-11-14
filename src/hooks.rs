@@ -126,6 +126,8 @@ pub fn handle(db: &Db, event: &str, input: &Value) -> Result<Value> {
                     scope: Some(std::env::var("ANCHOR_PROMPT_SCOPE").unwrap_or_else(|_| "knowledge".into())),
                     session: Some(session.clone()),
                     skip_shown: true,
+                    min_ratio: Some(0.75),
+                    max_items: Some(5),
                     ..Default::default()
                 },
             )?;
@@ -163,6 +165,8 @@ pub fn handle(db: &Db, event: &str, input: &Value) -> Result<Value> {
                     scope: Some("knowledge".into()),
                     session: Some(session.clone()),
                     skip_shown: true,
+                    min_ratio: Some(0.75),
+                    max_items: Some(5),
                     ..Default::default()
                 },
             )?;

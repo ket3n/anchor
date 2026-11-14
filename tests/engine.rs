@@ -531,3 +531,26 @@ fn eng11_code_recall_quality() {
     assert_eq!(recall::stem("जिटर"), None);
     println!("ENG-11 code recall: fn recall ranked #{}; definition above callers", pos.unwrap() + 1);
 }
+
+// ---------- ENG-12 injection precision with distractors (regression from benchmark v2) ----------
+#[test]
+fn eng12_precision_with_distractors() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    write(root, "fleet/client/feeds.py", "def fetch_all(urls, transport):\n    return [transport(u) for u in urls]\n");
+    for i in 0..20 {
+        write(root, &format!("fleet/m{i}.py"), &format!("def f{i}(x):\n    return x\n"));
+    }
+    let db = Db::open(root).unwrap();
+    index::index_all(&db, false).unwrap();
+    let target = rem(&db, "fetch_all in fleet/client/feeds.py must stay sequential: the partner gateway bans our IP range on parallel connections.", "decision", &["fleet/client/feeds.py"]);
+    for i in 0..40 {
+        rem(&db, &format!("m{i} keys are lowercased on purpose because partners send mixed-case identifiers (note {i})."), "note", &[&format!("fleet/m{}.py", i % 20)]);
+    }
+    let s = Situation { text: "The nightly partner sync takes hours now that we have about 500 partner feeds. Make it faster.".into(),
+        scope: Some("knowledge".into()), min_ratio: Some(0.75), max_items: Some(5), ..Default::default() };
+    let r = recall::recall(&db, &s).unwrap();
+    assert_eq!(r.items.first().map(|i| i.id.as_str()), Some(target.as_str()), "target first");
+    assert!(r.items.len() <= 3, "distractors must be cut: got {}", r.items.len());
+    println!("ENG-12 precision: {} item(s) injected out of 41, target first, {} tokens", r.items.len(), r.tokens);
+}

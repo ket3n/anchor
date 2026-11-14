@@ -29,6 +29,12 @@ pub struct Situation {
     /// skip items already shown in this session
     #[serde(default)]
     pub skip_shown: bool,
+    /// keep only items scoring at least this fraction of the best item (precision over recall)
+    #[serde(default)]
+    pub min_ratio: Option<f64>,
+    /// hard cap on knowledge items returned
+    #[serde(default)]
+    pub max_items: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -423,6 +429,22 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
         scored.push((score, id, row, reason));
     }
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap().then(a.1.cmp(&b.1)));
+    // relative cutoff: weak matches that merely share a common word with the request are dropped
+    // when a much stronger match exists (measured: 22 injected items → 1 on the DEC-03 prompt)
+    let ratio = s.min_ratio.unwrap_or(0.5);
+    if let Some(top) = scored.first().map(|x| x.0) {
+        scored.retain(|x| x.0 >= top * ratio);
+    }
+    if let Some(cap) = s.max_items {
+        let mut k = 0usize;
+        scored.retain(|x| {
+            if x.2.origin == "code" {
+                return true;
+            }
+            k += 1;
+            k <= cap
+        });
+    }
 
     // 6–7. DIVERSIFY + PACK
     let mut out = RecallResult { candidates: total_cand, ..Default::default() };
