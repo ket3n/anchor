@@ -41,3 +41,19 @@ what changed. Results live in bench/results/.
   E vs M cost per task: cor03 $0.087 vs $0.108, neu01 $0.049 vs $0.060, stale03 $0.054 vs $0.064,
   dec03 $0.106 vs $0.102 (E 167k vs M 129k tokens: the over-injection fixed for iteration 2).
   Verdict: on 41-note knowledge bases Anchor matches native memory's success and is cheaper on 3/4 tasks.
+- 00:41 Iteration 2 STARTED: dec04,stale04,dec03,neu01 × M,B,C1,C2,E × 4 (binary with precision fix). Out: scratchpad/iter2
+- Iteration 2 COMPLETE (80/80). Results: bench/results/2026-11-15-iter2.
+  Success saturated for every arm except C1 (dec03 3/4, dec04 3/4): even with 400 notes and a stale
+  question, Sonnet checks the code. Grader fix: two STALE-04 answers (M run 0, C2 run 1) were correct but
+  said the stored note was "out of date" — a phrase missing from the contrast list. False negative, not a
+  strictness change; all stale04 rows re-graded with the same grader for every arm.
+  Cost E vs M: stale04 $0.047 vs $0.087 (-46%), dec04 $0.109 vs $0.120 (-9%), neu01 $0.042 vs $0.056 (-25%),
+  dec03 $0.110 vs $0.099 (+11%). B (CLAUDE.md) is the most expensive at 400 notes (dec04 $0.168, 246k tokens).
+- Improvement: on dec03 the prompt injection was already 1 item/96 tokens, but after each edit to feeds.py
+  the PostToolUse staleness notice made the agent call review (E 14-17 turns vs M 7-13). Fix: a prescriptive
+  item (decision/rule/preference) already shown in the session is re-anchored silently; facts and unseen
+  items still get the notice. Integration test added.
+
+## Iteration 3
+- Cases: cor04 (NEW: user changes a rule in session 2; session 3 must follow the new one), dec03, dec04
+  (re-measure cost after the re-anchor fix). Arms M,B,C1,C2,E × 4.

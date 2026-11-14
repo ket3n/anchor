@@ -39,6 +39,12 @@ PROMPTS = {
     "dec04": "The nightly partner sync takes hours now that we have about 500 partner feeds. Make it faster.",
     "stale04": ("Quick question, no code changes needed: what batch size does our billing exporter use when it "
                 "sends invoices to the ledger, and how many times does it try each batch?"),
+    "cor04_s1": ("Add a function retry_count(results) to fleet/workers/queue.py that returns how many results are None. "
+                 "Also, a rule for this project: progress messages in workers must use log.info from the standard logging module."),
+    "cor04_s2": ("Rename the helper queue_key in fleet/workers/queue.py to job_key and update its uses. "
+                 "Correction to the earlier rule: from now on, progress messages in workers must use log.debug, not log.info."),
+    "cor04_s3": ("Create fleet/workers/drain.py with a function drain(jobs, handle) that calls handle(job) for each job, "
+                 "emits a progress message after each one, and returns how many were handled."),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -169,7 +175,7 @@ def changed(d, paths):
 def grade_answer_stale(final):
     """STALE-04 is graded on the answer: current values (200, 2), not the stale ones (500, 4)."""
     cur = bool(re.search(r"\b200\b", final)) and bool(re.search(r"\b(2|two)\b\s*(times|attempts|tries)|(attempts?|tries|times)\D{0,25}\b(2|two)\b", final, re.I))
-    contrast = re.search(r"\b(but|however|now|actually|outdated|stale|no longer|changed|previously|used to|was)\b", final, re.I)
+    contrast = re.search(r"\b(but|however|now|actually|outdated|out of date|out-of-date|stale|no longer|changed|previously|used to|was|wrong|incorrect)\b", final, re.I)
     old = bool(re.search(r"\b500\b", final)) and not contrast
     return cur and not old, f"current={cur} stale_asserted={old}"
 
@@ -190,6 +196,8 @@ def grade(case, d, final):
         did = changed(d, ["docs/OPERATIONS.md"])
     elif case == "cor03":
         did = os.path.exists(os.path.join(d, "fleet", "metrics", "latency.py"))
+    elif case == "cor04":
+        did = os.path.exists(os.path.join(d, "fleet", "workers", "drain.py"))
     else:
         did = changed(d, ["fleet/api/cli.py"])
     return {"check": chk[:200], "hidden_ok": ok, "tests_pass": tp, "did_task": did, "success": ok and tp and did}
@@ -199,7 +207,16 @@ def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
     mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
-    if case == "cor03":
+    if case == "cor04":
+        r["sessions"] = []
+        for k in ("cor04_s1", "cor04_s2"):
+            sx = claude(d, mcp, PROMPTS[k], arm)
+            r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
+            commit(d, k)
+        r["s1"] = {"cost_usd": sum((x["cost_usd"] or 0) for x in r["sessions"]),
+                   "input_tokens": sum((x["input_tokens"] or 0) for x in r["sessions"])}
+        r.update(claude(d, mcp, PROMPTS["cor04_s3"], arm))
+    elif case == "cor03":
         s1 = claude(d, mcp, PROMPTS["cor03_s1"], arm)
         r["s1"] = {k: s1.get(k) for k in ("cost_usd", "input_tokens", "result", "is_error")}
         commit(d, "session 1")
@@ -211,7 +228,7 @@ def run_case(case, arm, i, out):
 
 
 def limit_hit(r):
-    txt = (r.get("result") or "") + json.dumps(r.get("s1") or {})
+    txt = (r.get("result") or "") + json.dumps(r.get("s1") or {}) + json.dumps(r.get("sessions") or [])
     return "hit your" in txt and "limit" in txt
 
 

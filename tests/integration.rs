@@ -103,3 +103,28 @@ fn mcp_roundtrip_in_repo() {
     let r = handle_message(&mut ctx, &json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "recall", "arguments": {"query": "change the charge function"}}})).unwrap();
     assert!(r["result"]["content"][0]["text"].as_str().unwrap().contains("idempotent"));
 }
+
+#[test]
+fn post_edit_reanchors_seen_decisions_but_flags_facts() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join(".git")).unwrap();
+    let f = d.path().join("feeds.py");
+    std::fs::write(&f, "def fetch_all(urls, t):\n    return [t(u) for u in urls]\n").unwrap();
+    let db = anchor::db::Db::open(d.path()).unwrap();
+    anchor::index::index_all(&db, false).unwrap();
+    let rem = |c: &str, k: &str| anchor::knowledge::remember(&db, anchor::knowledge::RememberInput {
+        content: c.into(), kind: Some(k.into()), about: vec!["feeds.py".into()], origin: Some("user".into()), ..Default::default()
+    }).unwrap()["id"].as_str().unwrap().to_string();
+    let dec = rem("fetch_all must stay sequential because the gateway bans parallel clients", "decision");
+    let fact = rem("fetch_all returns a list in input order", "fact");
+    // the agent saw both in this session
+    let sit = anchor::recall::Situation { text: "fetch_all sequential order".into(), session: Some("s1".into()), ..Default::default() };
+    anchor::recall::recall(&db, &sit).unwrap();
+    std::fs::write(&f, "def fetch_all(urls, t):\n    out = []\n    for u in urls:\n        out.append(t(u))\n    return out\n").unwrap();
+    let input = json!({"session_id": "s1", "cwd": d.path(), "tool_name": "Edit", "tool_input": {"file_path": f}});
+    let out = anchor::hooks::handle(&db, "PostToolUse", &input).unwrap().to_string();
+    let stale = |id: &str| -> i64 { db.conn.query_row("SELECT stale FROM nodes WHERE id=?1", [id], |r| r.get(0)).unwrap() };
+    assert_eq!(stale(&dec), 0, "seen decision re-anchored silently");
+    assert_eq!(stale(&fact), 1, "descriptive fact stays stale");
+    assert!(out.contains(&fact) && !out.contains(&dec), "notice lists only the fact: {out}");
+}

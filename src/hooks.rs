@@ -188,7 +188,22 @@ pub fn handle(db: &Db, event: &str, input: &Value) -> Result<Value> {
             db.bump_session(&session, "edits")?;
             let rep = index::index_one(db, &abs)?;
             log_event(db, event, input, json!({"changed": rep.changed_symbols, "newly_stale": rep.newly_stale.iter().map(|x| &x.0).collect::<Vec<_>>()}));
-            let direct: Vec<&(String, i64, String)> = rep.newly_stale.iter().filter(|x| x.1 == 1).collect();
+            // A prescriptive item (decision/rule/preference) the agent already saw this session was in
+            // context while it edited: re-anchor it silently instead of asking for a review. Benchmark
+            // iteration 2 showed the review request costing 3-6 extra turns per DEC task.
+            let mut direct: Vec<&(String, i64, String)> = Vec::new();
+            for item in rep.newly_stale.iter().filter(|x| x.1 == 1) {
+                let (kind, seen): (String, bool) = db.conn.query_row(
+                    "SELECT n.kind, EXISTS(SELECT 1 FROM shown s WHERE s.session=?2 AND s.node=n.id) FROM nodes n WHERE n.id=?1",
+                    rusqlite::params![item.0, session],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                ).unwrap_or_default();
+                if seen && matches!(kind.as_str(), "decision" | "rule" | "preference" | "convention") {
+                    knowledge::review(db, &item.0, "verified", None, Some("re-anchored: edited with the item in context"))?;
+                } else {
+                    direct.push(item);
+                }
+            }
             if direct.is_empty() {
                 Value::Null
             } else {
