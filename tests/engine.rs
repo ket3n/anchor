@@ -159,6 +159,18 @@ fn eng03_invalidation() {
     write(root, "src/a.rs", "fn caller() -> u32 { 3 }\nfn far() -> u32 { caller() }\nfn other() -> u32 { 7 }\n");
     index::index_all(&db, false).unwrap();
     assert_eq!(stale(&db, &k_target), 1, "removed symbol → stale");
+    // module-level constant change stales file-level knowledge; comment-only change does not
+    write(root, "src/cfg.rs", "pub const BATCH: u32 = 500;\npub fn send() {}\n");
+    index::index_all(&db, false).unwrap();
+    let k_file = rem(&db, "batches are 500 items", "fact", &["src/cfg.rs"]);
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    write(root, "src/cfg.rs", "// tuned\npub const BATCH: u32 = 500;\npub fn send() {}\n");
+    index::index_all(&db, false).unwrap();
+    assert_eq!(stale(&db, &k_file), 0, "comment-only file edit must not stale file knowledge");
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    write(root, "src/cfg.rs", "pub const BATCH: u32 = 200;\npub fn send() {}\n");
+    index::index_all(&db, false).unwrap();
+    assert_eq!(stale(&db, &k_file), 1, "constant change must stale file-level knowledge");
     println!("ENG-03 invalidation: cosmetic=0 stale, direct=1, caller=soft, depends_on=soft, far/unrelated=0, delete=stale");
 }
 

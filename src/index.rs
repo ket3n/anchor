@@ -141,6 +141,15 @@ fn collect_calls(node: Node, src: &[u8], out: &mut BTreeSet<String>) {
     }
 }
 
+/// Normalized AST hash of an entire code file.
+pub fn whole_file_hash(fmt: Format, src: &[u8]) -> Option<String> {
+    let lang = language_for(fmt)?;
+    let mut parser = Parser::new();
+    parser.set_language(&lang).ok()?;
+    let tree = parser.parse(src, None)?;
+    Some(ast_hash(tree.root_node(), src))
+}
+
 pub fn extract_symbols(path: &str, fmt: Format, src: &[u8]) -> Vec<Symbol> {
     let Some(lang) = language_for(fmt) else { return vec![] };
     let mut parser = Parser::new();
@@ -398,7 +407,9 @@ fn index_file_inner(db: &Db, abs: &Path, r: &str, force: bool, report: &mut Inde
                 new_ids.insert(s.id.clone(), s.hash.clone());
             }
             report.symbols += syms.len();
-            fh.finalize().to_hex()[..16].to_string()
+            // file-level anchor = whole syntax tree (comments/formatting ignored), so module-level
+            // constants and imports count too — not just the symbols inside the file
+            whole_file_hash(f, &bytes).unwrap_or_else(|| fh.finalize().to_hex()[..16].to_string())
         }
         Format::Markdown => {
             let src = String::from_utf8_lossy(&bytes);

@@ -1,0 +1,170 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 1012' font-family='system-ui, sans-serif' font-size='12'>
+<rect width='100%' height='100%' fill='#ffffff'/>
+<text x='16' y='28' font-size='15' font-weight='600' fill='#1f2328'>Task success by memory setup (dot = rate, whisker = 95% CI)</text>
+<text x='16' y='66' font-weight='600' fill='#1f2328'>Claude · DEC-02</text>
+<text x='220' y='91.0' text-anchor='end' fill='#1f2328'>No memory</text>
+<line x1='230' x2='690' y1='87.0' y2='87.0' stroke='#eaeef2'/>
+<line x1='230.0' x2='429.8660875859573' y1='87.0' y2='87.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='230.0' cy='87.0' r='5' fill='#d1242f'/>
+<text x='698' y='91.0' fill='#57606a'>0/5</text>
+<text x='220' y='113.0' text-anchor='end' fill='#1f2328'>CLAUDE.md (hand-written)</text>
+<line x1='230' x2='690' y1='109.0' y2='109.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='109.0' y2='109.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='109.0' r='5' fill='#d1242f'/>
+<text x='698' y='113.0' fill='#57606a'>5/5</text>
+<text x='220' y='135.0' text-anchor='end' fill='#1f2328'>Official MCP memory server</text>
+<line x1='230' x2='690' y1='131.0' y2='131.0' stroke='#eaeef2'/>
+<line x1='402.74300149452785' x2='673.3373459538977' y1='131.0' y2='131.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='598.0' cy='131.0' r='5' fill='#d1242f'/>
+<text x='698' y='135.0' fill='#57606a'>4/5</text>
+<text x='220' y='157.0' text-anchor='end' fill='#1f2328'>basic-memory</text>
+<line x1='230' x2='690' y1='153.0' y2='153.0' stroke='#eaeef2'/>
+<line x1='230.0' x2='429.8660875859573' y1='153.0' y2='153.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='230.0' cy='153.0' r='5' fill='#d1242f'/>
+<text x='698' y='157.0' fill='#57606a'>0/5</text>
+<text x='220' y='179.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor</text>
+<line x1='230' x2='690' y1='175.0' y2='175.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='175.0' y2='175.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='175.0' r='5' fill='#0969da'/>
+<text x='698' y='179.0' fill='#57606a'>5/5</text>
+<text x='16' y='206' font-weight='600' fill='#1f2328'>Claude · COR-01</text>
+<text x='220' y='231.0' text-anchor='end' fill='#1f2328'>No memory</text>
+<line x1='230' x2='690' y1='227.0' y2='227.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='227.0' y2='227.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='227.0' r='5' fill='#d1242f'/>
+<text x='698' y='231.0' fill='#57606a'>5/5</text>
+<text x='220' y='253.0' text-anchor='end' fill='#1f2328'>Official MCP memory server</text>
+<line x1='230' x2='690' y1='249.0' y2='249.0' stroke='#eaeef2'/>
+<line x1='402.74300149452785' x2='673.3373459538977' y1='249.0' y2='249.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='598.0' cy='249.0' r='5' fill='#d1242f'/>
+<text x='698' y='253.0' fill='#57606a'>4/5</text>
+<text x='220' y='275.0' text-anchor='end' fill='#1f2328'>basic-memory</text>
+<line x1='230' x2='690' y1='271.0' y2='271.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='271.0' y2='271.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='271.0' r='5' fill='#d1242f'/>
+<text x='698' y='275.0' fill='#57606a'>5/5</text>
+<text x='220' y='297.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor</text>
+<line x1='230' x2='690' y1='293.0' y2='293.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='293.0' y2='293.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='293.0' r='5' fill='#0969da'/>
+<text x='698' y='297.0' fill='#57606a'>5/5</text>
+<text x='16' y='324' font-weight='600' fill='#1f2328'>Claude · COR-02</text>
+<text x='220' y='349.0' text-anchor='end' fill='#1f2328'>No memory</text>
+<line x1='230' x2='690' y1='345.0' y2='345.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='345.0' y2='345.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='345.0' r='5' fill='#d1242f'/>
+<text x='698' y='349.0' fill='#57606a'>5/5</text>
+<text x='220' y='371.0' text-anchor='end' fill='#1f2328'>Official MCP memory server</text>
+<line x1='230' x2='690' y1='367.0' y2='367.0' stroke='#eaeef2'/>
+<line x1='246.66265404610223' x2='517.2569985054722' y1='367.0' y2='367.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='322.0' cy='367.0' r='5' fill='#d1242f'/>
+<text x='698' y='371.0' fill='#57606a'>1/5</text>
+<text x='220' y='393.0' text-anchor='end' fill='#1f2328'>basic-memory</text>
+<line x1='230' x2='690' y1='389.0' y2='389.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='389.0' y2='389.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='389.0' r='5' fill='#d1242f'/>
+<text x='698' y='393.0' fill='#57606a'>5/5</text>
+<text x='220' y='415.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor</text>
+<line x1='230' x2='690' y1='411.0' y2='411.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='411.0' y2='411.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='411.0' r='5' fill='#0969da'/>
+<text x='698' y='415.0' fill='#57606a'>5/5</text>
+<text x='16' y='442' font-weight='600' fill='#1f2328'>Claude · STALE-01</text>
+<text x='220' y='467.0' text-anchor='end' fill='#1f2328'>No memory</text>
+<line x1='230' x2='690' y1='463.0' y2='463.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='463.0' y2='463.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='463.0' r='5' fill='#d1242f'/>
+<text x='698' y='467.0' fill='#57606a'>5/5</text>
+<text x='220' y='489.0' text-anchor='end' fill='#1f2328'>CLAUDE.md (not updated)</text>
+<line x1='230' x2='690' y1='485.0' y2='485.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='485.0' y2='485.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='485.0' r='5' fill='#d1242f'/>
+<text x='698' y='489.0' fill='#57606a'>5/5</text>
+<text x='220' y='511.0' text-anchor='end' fill='#1f2328'>Official MCP memory server</text>
+<line x1='230' x2='690' y1='507.0' y2='507.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='507.0' y2='507.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='507.0' r='5' fill='#d1242f'/>
+<text x='698' y='511.0' fill='#57606a'>5/5</text>
+<text x='220' y='533.0' text-anchor='end' fill='#1f2328'>basic-memory</text>
+<line x1='230' x2='690' y1='529.0' y2='529.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='529.0' y2='529.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='529.0' r='5' fill='#d1242f'/>
+<text x='698' y='533.0' fill='#57606a'>5/5</text>
+<text x='220' y='555.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor</text>
+<line x1='230' x2='690' y1='551.0' y2='551.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='551.0' y2='551.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='551.0' r='5' fill='#0969da'/>
+<text x='698' y='555.0' fill='#57606a'>5/5</text>
+<text x='16' y='582' font-weight='600' fill='#1f2328'>Claude · STALE-02</text>
+<text x='220' y='607.0' text-anchor='end' fill='#1f2328'>No memory</text>
+<line x1='230' x2='690' y1='603.0' y2='603.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='603.0' y2='603.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='603.0' r='5' fill='#d1242f'/>
+<text x='698' y='607.0' fill='#57606a'>5/5</text>
+<text x='220' y='629.0' text-anchor='end' fill='#1f2328'>CLAUDE.md (not updated)</text>
+<line x1='230' x2='690' y1='625.0' y2='625.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='625.0' y2='625.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='625.0' r='5' fill='#d1242f'/>
+<text x='698' y='629.0' fill='#57606a'>5/5</text>
+<text x='220' y='651.0' text-anchor='end' fill='#1f2328'>Official MCP memory server</text>
+<line x1='230' x2='690' y1='647.0' y2='647.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='647.0' y2='647.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='647.0' r='5' fill='#d1242f'/>
+<text x='698' y='651.0' fill='#57606a'>5/5</text>
+<text x='220' y='673.0' text-anchor='end' fill='#1f2328'>basic-memory</text>
+<line x1='230' x2='690' y1='669.0' y2='669.0' stroke='#eaeef2'/>
+<line x1='490.13391241404275' x2='690.0' y1='669.0' y2='669.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='669.0' r='5' fill='#d1242f'/>
+<text x='698' y='673.0' fill='#57606a'>5/5</text>
+<text x='220' y='695.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor</text>
+<line x1='230' x2='690' y1='691.0' y2='691.0' stroke='#eaeef2'/>
+<line x1='402.74300149452785' x2='673.3373459538977' y1='691.0' y2='691.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='598.0' cy='691.0' r='5' fill='#0969da'/>
+<text x='698' y='695.0' fill='#57606a'>4/5</text>
+<text x='16' y='722' font-weight='600' fill='#1f2328'>Antigravity · DEC-02</text>
+<text x='220' y='747.0' text-anchor='end' fill='#1f2328'>No memory</text>
+<line x1='230' x2='690' y1='743.0' y2='743.0' stroke='#eaeef2'/>
+<line x1='325.5212793581844' x2='661.7144549729662' y1='743.0' y2='743.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='536.6666666666666' cy='743.0' r='5' fill='#d1242f'/>
+<text x='698' y='747.0' fill='#57606a'>2/3</text>
+<text x='220' y='769.0' text-anchor='end' fill='#1f2328'>AGENTS.md (hand-written)</text>
+<line x1='230' x2='690' y1='765.0' y2='765.0' stroke='#eaeef2'/>
+<line x1='431.70720299345186' x2='690.0' y1='765.0' y2='765.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='765.0' r='5' fill='#d1242f'/>
+<text x='698' y='769.0' fill='#57606a'>3/3</text>
+<text x='220' y='791.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor (MCP only)</text>
+<line x1='230' x2='690' y1='787.0' y2='787.0' stroke='#eaeef2'/>
+<line x1='431.70720299345186' x2='690.0' y1='787.0' y2='787.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='787.0' r='5' fill='#0969da'/>
+<text x='698' y='791.0' fill='#57606a'>3/3</text>
+<text x='16' y='818' font-weight='600' fill='#1f2328'>Antigravity · COR-01</text>
+<text x='220' y='843.0' text-anchor='end' fill='#1f2328'>No memory</text>
+<line x1='230' x2='690' y1='839.0' y2='839.0' stroke='#eaeef2'/>
+<line x1='431.70720299345186' x2='690.0' y1='839.0' y2='839.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='839.0' r='5' fill='#d1242f'/>
+<text x='698' y='843.0' fill='#57606a'>3/3</text>
+<text x='220' y='865.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor (MCP only)</text>
+<line x1='230' x2='690' y1='861.0' y2='861.0' stroke='#eaeef2'/>
+<line x1='431.70720299345186' x2='690.0' y1='861.0' y2='861.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='861.0' r='5' fill='#0969da'/>
+<text x='698' y='865.0' fill='#57606a'>3/3</text>
+<text x='16' y='892' font-weight='600' fill='#1f2328'>Antigravity · STALE-01</text>
+<text x='220' y='917.0' text-anchor='end' fill='#1f2328'>No memory</text>
+<line x1='230' x2='690' y1='913.0' y2='913.0' stroke='#eaeef2'/>
+<line x1='387.4910983292249' x2='690.0' y1='913.0' y2='913.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='913.0' r='5' fill='#d1242f'/>
+<text x='698' y='917.0' fill='#57606a'>2/2</text>
+<text x='220' y='939.0' text-anchor='end' fill='#1f2328'>AGENTS.md (not updated)</text>
+<line x1='230' x2='690' y1='935.0' y2='935.0' stroke='#eaeef2'/>
+<line x1='325.00991407799074' x2='690.0' y1='935.0' y2='935.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='935.0' r='5' fill='#d1242f'/>
+<text x='698' y='939.0' fill='#57606a'>1/1</text>
+<text x='220' y='961.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor (MCP only)</text>
+<line x1='230' x2='690' y1='957.0' y2='957.0' stroke='#eaeef2'/>
+<line x1='325.00991407799074' x2='690.0' y1='957.0' y2='957.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='957.0' r='5' fill='#0969da'/>
+<text x='698' y='961.0' fill='#57606a'>1/1</text>
+<text x='230' y='1000' text-anchor='middle' fill='#57606a'>0%</text>
+<text x='460.0' y='1000' text-anchor='middle' fill='#57606a'>50%</text>
+<text x='690' y='1000' text-anchor='middle' fill='#57606a'>100%</text>
+</svg>

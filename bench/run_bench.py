@@ -154,6 +154,31 @@ def case_dec02(base, arm, i, model):
     return r
 
 
+STALE_FACT = "retry_with_backoff makes 5 attempts by default before giving up."
+STALE01_PROMPT = ("Add a docstring to retry_with_backoff in client/retry.py that states how many attempts it makes "
+                  "by default and what happens after the last one.")
+
+
+def case_stale01(base, arm, i, model):
+    d = os.path.join(base, f"stale01-{arm}-{i}")
+    mcp = prepare(d, "E" if arm == "E" else "A")
+    if arm == "N":  # naive memory: a notes file that is never invalidated
+        with open(os.path.join(d, "CLAUDE.md"), "w") as f:
+            f.write("# Project notes\n\n- " + STALE_FACT + "\n")
+    if arm == "E":
+        sh([ANCHOR, "--root", d, "remember", STALE_FACT, "--kind", "fact", "--about", "retry_with_backoff"], d)
+    # a later commit changes the default; the stored fact is now outdated
+    p = os.path.join(d, "client", "retry.py")
+    src = open(p).read().replace("attempts=5", "attempts=3")
+    open(p, "w").write(src)
+    sh(["git", "add", "-A"], d); sh(["git", "-c", "user.email=b@b", "-c", "user.name=bench", "commit", "-qm", "fewer retries"], d)
+    r = claude(d, mcp, STALE01_PROMPT, model, arm)
+    chk = sh([sys.executable, os.path.join(HERE, "hidden", "check_stale01.py"), d], d)
+    r.update({"case": "STALE-01", "arm": arm, "run": i, "correct": "STALE01_OK" in chk.stdout,
+              "check": chk.stdout.strip()[:200], "tests_pass": unit_ok(d)})
+    return r
+
+
 def cor01_check(d):
     p = os.path.join(d, "client", "upload.py")
     if not os.path.exists(p):
@@ -200,6 +225,8 @@ def main():
         jobs += [(case_dec01, arm, i) for i in range(a.runs) for arm in ("A", "B", "E")]
     if "dec02" in a.cases:
         jobs += [(case_dec02, arm, i) for i in range(a.runs) for arm in (a.arms.split(",") if a.arms else ("A", "B", "E"))]
+    if "stale01" in a.cases:
+        jobs += [(case_stale01, arm, i) for i in range(a.runs) for arm in (a.arms.split(",") if a.arms else ("A", "N", "E"))]
     if "cor01" in a.cases:
         jobs += [(case_cor01, arm, i) for i in range(a.runs) for arm in (a.arms.split(",") if a.arms else ("A", "E"))]
     results_path = os.path.join(a.out, "results.jsonl")
@@ -212,7 +239,7 @@ def main():
             r = {"case": fn.__name__, "arm": arm, "run": i, "error": repr(e)}
         with open(results_path, "a") as f:
             f.write(json.dumps(r) + "\n")
-        print(json.dumps({k: r.get(k) for k in ("case", "arm", "run", "decision_preserved", "retained", "tests_pass", "cost_usd", "error")}), flush=True)
+        print(json.dumps({k: r.get(k) for k in ("case", "arm", "run", "decision_preserved", "retained", "correct", "tests_pass", "cost_usd", "error")}), flush=True)
         return r
 
     with ThreadPoolExecutor(a.parallel) as ex:
