@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Benchmark v2 — harder, bias-controlled. See ../PROTOCOL.md (pre-registered before the run).
 
-Arms (Claude Code, Sonnet; native auto-memory OFF unless stated):
-  A0  no memory at all
-  M   Claude Code native auto-memory, seeded with the knowledge base (autoMemoryDirectory inside the run)
+Arms (Claude Code, Sonnet; native auto-memory ON in every arm, each run in its own folder):
+  M   baseline: Claude Code native auto-memory, seeded with the knowledge base
   B   CLAUDE.md containing the knowledge base
   C1  official MCP memory server, knowledge base as entities + its README instructions
   C2  basic-memory (MCP + its lifecycle hooks), knowledge base as notes
@@ -14,7 +13,7 @@ Cases: dec03 (decision, prompt never names the function), cor03 (rule from sessi
        stale03 (outdated fact, answerable without reading code), neu01 (memory irrelevant: harm check).
 Strict success = hidden check AND full visible test suite passes AND task not skipped.
 
-Usage: run.py <out> [--runs 4] [--cases dec03,cor03,stale03,neu01] [--arms A0,M,B,C1,C2,E] [--parallel 3]
+Usage: run.py <out> [--runs 4] [--cases dec03,cor03,stale03,neu01] [--arms M,B,C1,C2,E] [--parallel 3]
 """
 import argparse, json, os, re, shutil, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
@@ -123,8 +122,11 @@ def setup(d, arm, case):
         mcp = json.load(open(os.path.join(d, ".mcp.json")))
         for about, kind, text in notes:
             sh([ANCHOR, "--root", d, "remember", text, "--kind", kind, "--about", about, "--origin", "user"], d)
-    if local_settings:
-        write(os.path.join(d, ".claude", "settings.local.json"), json.dumps(local_settings, indent=2))
+    # native auto-memory is ON in every arm (it is what every Claude Code user has); each run keeps it
+    # in its own folder. Only arm M has it pre-seeded with the knowledge base.
+    local_settings.setdefault("autoMemoryDirectory", os.path.join(d, ".automem"))
+    os.makedirs(local_settings["autoMemoryDirectory"], exist_ok=True)
+    write(os.path.join(d, ".claude", "settings.local.json"), json.dumps(local_settings, indent=2))
     if case == "stale03":  # a later teammate commit changes the facts the stored note describes
         p = os.path.join(d, "fleet", "billing", "exporter.py")
         write(p, open(p).read().replace("BATCH_SIZE = 500", "BATCH_SIZE = 200").replace("MAX_ATTEMPTS = 4", "MAX_ATTEMPTS = 2"))
@@ -136,8 +138,7 @@ def setup(d, arm, case):
 
 def claude(d, mcp, prompt, arm):
     env = dict(os.environ)
-    if arm != "M":
-        env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = "1"
+    env.pop("CLAUDE_CODE_DISABLE_AUTO_MEMORY", None)
     t = time.time()
     p = sh(["claude", "-p", prompt, "--model", MODEL, "--setting-sources", "project,local", "--strict-mcp-config",
             "--mcp-config", mcp, "--permission-mode", "default", "--allowedTools", TOOLS + EXTRA_TOOLS.get(arm, ""),
@@ -202,7 +203,7 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--runs", type=int, default=4)
     ap.add_argument("--cases", default="dec03,cor03,stale03,neu01")
-    ap.add_argument("--arms", default="A0,M,B,C1,C2,E")
+    ap.add_argument("--arms", default="M,B,C1,C2,E")
     ap.add_argument("--parallel", type=int, default=3)
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)

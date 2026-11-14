@@ -8,7 +8,7 @@ import json, math, os, sys
 from collections import defaultdict
 
 ARM_NAME = {
-    "A0": "No memory (native auto-memory off)", "M": "Claude native auto-memory (seeded)",
+    "A0": "No memory (native auto-memory off)", "M": "Claude native memory (baseline)",
     "A": "No memory", "B": "CLAUDE.md (hand-written)", "N": "CLAUDE.md (not updated)",
     "C1": "Official MCP memory server", "C2": "basic-memory", "E": "Anchor",
     "XA": "No memory", "XB": "AGENTS.md (hand-written)", "XN": "AGENTS.md (not updated)", "XE": "Anchor (MCP only)",

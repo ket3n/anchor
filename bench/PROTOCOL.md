@@ -6,14 +6,17 @@ Does Anchor make a coding agent behave better than (a) no memory, (b) Claude Cod
 without hurting tasks where it should not?
 
 ## Arms (Claude Code, `sonnet`, one fresh session per run, user settings excluded, scoped tool allowlist)
+Amendment (2026-11-14, before any v2 run, at the user's request): Claude Code's native auto-memory stays ON
+in every arm, as it is for every real user. The baseline to beat is native memory itself. Arm A0 dropped.
 | Arm | Setup |
 | --- | --- |
-| A0 | No memory. Native auto-memory disabled (`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`). |
-| M  | Native auto-memory, seeded with the knowledge base (`autoMemoryDirectory` inside the run). |
-| B  | CLAUDE.md containing the knowledge base. Native auto-memory disabled. |
-| C1 | Official MCP memory server; knowledge base as entities; its README's memory instructions in CLAUDE.md. |
-| C2 | basic-memory 1.0: MCP + its own lifecycle hooks; knowledge base as notes. |
-| E  | Anchor: hooks + MCP; knowledge base as items linked to the file each note is about. |
+| M  | Baseline: Claude Code native auto-memory, seeded with the knowledge base (`autoMemoryDirectory` inside the run). |
+| B  | CLAUDE.md containing the knowledge base (+ native memory, empty at start). |
+| C1 | Official MCP memory server; knowledge base as entities; its README's memory instructions in CLAUDE.md (+ native memory, empty at start). |
+| C2 | basic-memory 1.0: MCP + its own lifecycle hooks; knowledge base as notes (+ native memory, empty at start). |
+| E  | Anchor: hooks + MCP; knowledge base as items linked to the file each note is about (+ native memory, empty at start). |
+
+Primary comparison: E vs M (does adding Anchor beat Claude's own memory holding the same knowledge?).
 
 ## Fairness rules
 1. Every memory arm holds the same 41 notes, same text: 1 relevant + 40 realistic distractors
@@ -34,9 +37,10 @@ hidden check passes AND the full visible test suite passes AND the task was actu
 | NEU-01 | Add `--dry-run` to the CLI. Memory is irrelevant. | Dry run sends nothing, prints the count, returns 0; normal export unchanged. |
 
 ## Pre-registered expectations (to be confirmed or refuted)
-- DEC-03: A0 fails most runs; B, M, E succeed most runs; E ≥ C1, C2.
-- COR-03: A0 and B fail (no capture); M and E capture and apply; C1/C2 depend on whether the agent calls them.
+- DEC-03: M, B, E succeed most runs (the knowledge is present); E ≥ C1, C2. E vs M may tie.
+- COR-03: every arm has native memory, so capture should happen in all; E should not be worse than M.
 - STALE-03: B and M (no invalidation) are at risk of writing 500/4; E should flag the item stale and win.
-- NEU-01: no arm drops more than one run versus A0 (no harm); token overhead reported.
+- STALE-03 is where E is expected to beat M: native memory has no invalidation.
+- NEU-01: no arm drops more than one run versus M (no harm); token overhead reported.
 - Report every arm, every case, with Wilson 95% CIs and two-sided Fisher exact p (E vs each arm),
   whatever the outcome. n = 4 runs per arm per case (quota-bound), so only large effects can reach p < 0.05.
