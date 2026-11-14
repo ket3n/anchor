@@ -36,3 +36,8 @@ what changed. Results live in bench/results/.
     answer marks it as outdated (same grader for all arms; grader unit-checked on 5 phrasings).
 - Plan: after v2 completes, install the new binary, run iteration 2 = dec04, stale04, dec03 (re-check tokens),
   neu01 across M,B,C1,C2,E × 4 runs.
+- Iteration 1 COMPLETE (80/80). Results: bench/results/2026-11-15-iter1-v2.
+  Success: E 16/16 = M 16/16 = B 16/16 = C2 16/16; C1 12/16 (cor03 1/4, dec03 3/4). No harm on neu01.
+  E vs M cost per task: cor03 $0.087 vs $0.108, neu01 $0.049 vs $0.060, stale03 $0.054 vs $0.064,
+  dec03 $0.106 vs $0.102 (E 167k vs M 129k tokens: the over-injection fixed for iteration 2).
+  Verdict: on 41-note knowledge bases Anchor matches native memory's success and is cheaper on 3/4 tasks.
