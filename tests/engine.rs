@@ -498,3 +498,24 @@ fn quarantine_external() {
     }
     println!("quarantine: external stored as quarantined, cannot be strict, no guardrail effect, fenced, ranked below");
 }
+
+// ---------- ENG-11 code recall quality (regression from live use) ----------
+#[test]
+fn eng11_code_recall_quality() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    write(root, "src/recall.rs", "pub struct RecallResult { pub items: Vec<u32> }\npub const FLOOR: f64 = 0.2;\npub struct Weights { pub rel: f64 }\npub struct Item { pub id: u32 }\npub fn recall(q: &str) -> RecallResult {\n    let mut score = 0.0;\n    for w in q.split(' ') { score += weight(w) * 0.35; }\n    let _ = score;\n    RecallResult { items: vec![] }\n}\nfn weight(w: &str) -> f64 { w.len() as f64 }\n");
+    write(root, "src/lib.rs", "pub mod recall;\n");
+    write(root, "src/cli.rs", "fn run() { crate::recall::recall(\"x\"); }\nfn other() { crate::recall::recall(\"y\"); }\n");
+    let db = Db::open(root).unwrap();
+    index::index_all(&db, false).unwrap();
+    let r = recall::recall(&db, &Situation { text: "recall scoring".into(), ..Default::default() }).unwrap();
+    let ids: Vec<&str> = r.items.iter().map(|i| i.id.as_str()).collect();
+    let pos = ids.iter().position(|i| *i == "sym:src/recall.rs::recall");
+    assert!(pos.is_some_and(|p| p < 3), "fn recall must be in top 3: {ids:?}");
+    let caller = ids.iter().position(|i| *i == "sym:src/cli.rs::other").unwrap_or(usize::MAX);
+    assert!(pos.unwrap() < caller, "definition must outrank its callers: {ids:?}");
+    assert_eq!(recall::stem("scoring").as_deref(), Some("scor"));
+    assert_eq!(recall::stem("जिटर"), None);
+    println!("ENG-11 code recall: fn recall ranked #{}; definition above callers", pos.unwrap() + 1);
+}

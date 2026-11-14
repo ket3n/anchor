@@ -382,6 +382,7 @@ fn index_file_inner(db: &Db, abs: &Path, r: &str, force: bool, report: &mut Inde
                 fh.update(s.hash.as_bytes());
                 upsert_code_node(db, &s.id, "symbol", f.name(), &s.body, Some(&s.signature), r,
                     Some(&s.qualified), Some(&s.short), &s.hash, s.start, s.end, t)?;
+                db.conn.execute("UPDATE nodes SET tags=?2 WHERE id=?1", params![s.id, s.kind])?;
                 // store unresolved calls in edges with dst = "name:<short>"
                 db.conn.execute("DELETE FROM edges WHERE src=?1 AND type IN ('calls_name')", params![s.id])?;
                 for c in &s.calls {

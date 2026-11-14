@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS edges (
 CREATE INDEX IF NOT EXISTS edges_dst ON edges(dst);
 
 CREATE TABLE IF NOT EXISTS fts_map (rid INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT NOT NULL UNIQUE);
-CREATE VIRTUAL TABLE IF NOT EXISTS fts_words USING fts5(node_id UNINDEXED, body, tokenize='unicode61');
+CREATE VIRTUAL TABLE IF NOT EXISTS fts_words USING fts5(node_id UNINDEXED, body, tokenize='unicode61', prefix='4 5 6 7 8');
+CREATE VIRTUAL TABLE IF NOT EXISTS fts_words_v USING fts5vocab(fts_words, 'row');
 CREATE VIRTUAL TABLE IF NOT EXISTS fts_tri   USING fts5(node_id UNINDEXED, body, tokenize='trigram');
 
 CREATE TABLE IF NOT EXISTS files (
@@ -160,7 +161,46 @@ impl Db {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.execute_batch(SCHEMA)?;
-        Ok(Db { conn, root: root.to_path_buf() })
+        let db = Db { conn, root: root.to_path_buf() };
+        db.migrate()?;
+        Ok(db)
+    }
+
+    /// Schema 2: word index gains prefix indexes (fast stem queries). Rebuild FTS once.
+    fn migrate(&self) -> Result<()> {
+        const VERSION: &str = "2";
+        let cur = self.meta_get("schema")?;
+        if cur.as_deref() == Some(VERSION) {
+            return Ok(());
+        }
+        let fresh: i64 = self.conn.query_row("SELECT COUNT(*) FROM nodes", [], |r| r.get(0))?;
+        if fresh > 0 {
+            let tx = self.conn.unchecked_transaction()?;
+            self.conn.execute_batch(
+                "DROP TABLE IF EXISTS fts_words; DROP TABLE IF EXISTS fts_tri; DELETE FROM fts_map;",
+            )?;
+            self.conn.execute_batch(SCHEMA)?;
+            let rows: Vec<(String, String, String, Option<String>, Option<String>, Option<String>, String, String)> = {
+                let mut st = self.conn.prepare(
+                    "SELECT id, kind, content, summary, symbol, path, tags, origin FROM nodes WHERE kind != 'file'",
+                )?;
+                st.query_map([], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?))
+                })?
+                .collect::<Result<_, _>>()?
+            };
+            for (id, kind, content, summary, symbol, path, tags, origin) in rows {
+                let body = if origin == "code" {
+                    format!("{}\n{}\n{}", symbol.unwrap_or_default(), path.unwrap_or_default(), content)
+                } else {
+                    format!("{}\n{}\n{}\n{}", kind, content, summary.unwrap_or_default(), tags)
+                };
+                self.fts_put(&id, &body)?;
+            }
+            tx.commit()?;
+        }
+        self.meta_set("schema", VERSION)?;
+        Ok(())
     }
 
     pub fn open_in_memory_root(root: &Path) -> Result<Db> {

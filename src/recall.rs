@@ -150,12 +150,47 @@ fn load(db: &Db, id: &str) -> Result<Option<Row>> {
         .optional()?)
 }
 
+/// Light, conservative stem for ASCII words so "scoring" also finds "score"/"scores".
+/// Non-ASCII terms are left alone (the trigram index handles other scripts).
+pub fn stem(t: &str) -> Option<String> {
+    if !t.is_ascii() || t.len() < 5 {
+        return None;
+    }
+    for suf in ["ations", "ation", "ings", "ing", "ers", "ies", "ied", "ed", "es", "er", "ly", "s"] {
+        if let Some(base) = t.strip_suffix(suf) {
+            if base.len() >= 4 {
+                // the word index keeps prefix indexes for 4–8 chars
+                return Some(base.chars().take(8).collect());
+            }
+        }
+    }
+    None
+}
+
 fn fts_query(terms: &[String]) -> String {
-    terms
-        .iter()
-        .map(|t| format!("\"{}\"", t.replace('"', "")))
-        .collect::<Vec<_>>()
-        .join(" OR ")
+    terms.iter().map(|t| format!("\"{}\"", t.replace('"', ""))).collect::<Vec<_>>().join(" OR ")
+}
+
+/// Word query plus stem prefixes — only for words that are rare in the index (IDF-driven
+/// expansion): "scoring" (absent) also tries "scor*", while a common word is left exact,
+/// which keeps queries fast at 100k+ items.
+fn fts_query_expanded(db: &Db, terms: &[String]) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let mut st = db.conn.prepare_cached("SELECT doc FROM fts_words_v WHERE term=?1").ok();
+    for t in terms {
+        let clean = t.replace('"', "");
+        parts.push(format!("\"{clean}\""));
+        if let Some(stemmed) = stem(&clean) {
+            let df: i64 = st
+                .as_mut()
+                .and_then(|s| s.query_row(params![clean.to_lowercase()], |r| r.get(0)).ok())
+                .unwrap_or(0);
+            if df < 20 {
+                parts.push(format!("\"{stemmed}\"*"));
+            }
+        }
+    }
+    parts.join(" OR ")
 }
 
 fn lexical(db: &Db, table: &str, q: &str, limit: usize) -> Result<Vec<(String, f64)>> {
@@ -212,13 +247,20 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
     }
     {
         let mut st = db.conn.prepare(
-            "SELECT id FROM nodes WHERE kind IN ('symbol','file','config') AND
-               (short_name=?1 OR symbol=?1 OR path=?1 OR (path || '::' || symbol)=?1) LIMIT 5",
+            "SELECT id, tags FROM nodes WHERE kind IN ('symbol','file','config') AND
+               (short_name=?1 OR symbol=?1 OR path=?1 OR (path || '::' || symbol)=?1)
+             ORDER BY (short_name=?1) DESC, length(content) DESC, id LIMIT 5",
         )?;
         for (ident, w) in &idents {
-            let ids: Vec<String> = st.query_map(params![ident], |r| r.get(0))?.collect::<Result<_, _>>()?;
-            for id in ids {
-                add_seed(&mut seeds, id, *w, format!("names `{ident}`"));
+            let ids: Vec<(String, String)> =
+                st.query_map(params![ident], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+            for (id, label) in ids {
+                // a definition is a stronger anchor than a module declaration or impl block
+                let kw = match label.as_str() {
+                    "mod" | "impl" => 0.6,
+                    _ => 1.0,
+                };
+                add_seed(&mut seeds, id, *w * kw, format!("names `{ident}`"));
             }
         }
     }
@@ -226,7 +268,7 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
     // 2. LEXICAL
     let terms = text::query_terms(&full_text);
     let mut rel: BTreeMap<String, f64> = BTreeMap::new();
-    for (id, r) in lexical(db, "fts_words", &fts_query(&terms), 80)? {
+    for (id, r) in lexical(db, "fts_words", &fts_query_expanded(db, &terms), 80)? {
         let e = rel.entry(id).or_insert(0.0);
         *e = e.max(r);
     }
@@ -251,14 +293,16 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
             *e = e.max(r * 0.9);
         }
     }
-    // strong lexical code hits become weak seeds, so knowledge linked to them surfaces
+    // strong lexical code hits seed their NEIGHBOURS (so linked knowledge surfaces) but do not
+    // get proximity credit themselves — their relevance is already counted once.
+    let mut lex_seeds: Vec<(String, f64, String)> = Vec::new();
     {
         let mut code_hits: Vec<(&String, &f64)> =
             rel.iter().filter(|(id, _)| id.starts_with("sym:") || id.starts_with("doc:") || id.starts_with("cfg:")).collect();
         code_hits.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap().then(a.0.cmp(b.0)));
         for (id, r) in code_hits.into_iter().take(8) {
-            if *r >= 0.25 {
-                add_seed(&mut seeds, id.clone(), *r, format!("linked to code matching the request ({})", short_id(id)));
+            if *r >= 0.25 && !seeds.contains_key(id) {
+                lex_seeds.push((id.clone(), *r, format!("linked to code matching the request ({})", short_id(id))));
             }
         }
     }
@@ -273,6 +317,7 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
     }
     let mut frontier: Vec<(String, f64, String)> =
         seeds.iter().map(|(k, (w, why))| (k.clone(), *w, why.clone())).collect();
+    frontier.extend(lex_seeds);
     let mut st_out = db.conn.prepare("SELECT dst, type FROM edges WHERE src=?1")?;
     let mut st_in = db.conn.prepare("SELECT src, type FROM edges WHERE dst=?1")?;
     for hop in 0..2 {
@@ -314,6 +359,7 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
         BTreeSet::new()
     };
     let t_now = now();
+    let wants_tests = terms.iter().any(|t| t.starts_with("test") || t == "spec");
     let mut scored: Vec<(f64, String, Row, String)> = Vec::new();
     let total_cand = cand.len();
     for id in cand {
@@ -333,6 +379,10 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
         let r = *rel.get(&id).unwrap_or(&0.0);
         let (p, why_p) = prox.get(&id).cloned().unwrap_or((0.0, String::new()));
         if r <= 0.0 && p <= 0.0 {
+            continue;
+        }
+        // code reached only through a weak link (e.g. merely calls a named symbol) is noise
+        if is_code && r <= 0.0 && p < 0.5 {
             continue;
         }
         // code is ground truth for itself but carries no claim; neutral trust
@@ -355,6 +405,10 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
         }
         if is_code {
             score -= 0.10; // knowledge first; code is context
+            // tests mention everything; rank them below source unless the request is about tests
+            if !wants_tests && row.path.as_deref().is_some_and(is_test_path) {
+                score -= 0.10;
+            }
         }
         if score < FLOOR {
             continue;
@@ -385,7 +439,7 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
         if row.origin == "code" {
             let p = row.path.clone().unwrap_or_default();
             let c = per_path.entry(p).or_insert(0);
-            if *c >= 3 {
+            if *c >= 5 {
                 continue;
             }
         }
@@ -441,6 +495,13 @@ pub fn recall(db: &Db, s: &Situation) -> Result<RecallResult> {
         db.bump_session(sess, "recalls")?;
     }
     Ok(out)
+}
+
+fn is_test_path(p: &str) -> bool {
+    let p = p.to_lowercase();
+    p.starts_with("tests/") || p.contains("/tests/") || p.contains("/test/") || p.starts_with("test/")
+        || p.contains("_test.") || p.contains(".test.") || p.contains(".spec.")
+        || p.rsplit('/').next().is_some_and(|f| f.starts_with("test_"))
 }
 
 fn short_id(id: &str) -> String {
