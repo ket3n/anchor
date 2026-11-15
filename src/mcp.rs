@@ -157,11 +157,17 @@ pub fn handle_message(ctx: &mut Ctx, msg: &Value) -> Option<Value> {
             })
         }
         "ping" => json!({}),
-        "tools/list" => json!({"tools": tools()}),
+        "tools/list" => {
+            let mut all = tools().as_array().cloned().unwrap_or_default();
+            all.extend(crate::orch::tools());
+            json!({"tools": all})
+        }
         "tools/call" => {
             let name = msg.pointer("/params/name").and_then(|v| v.as_str()).unwrap_or("");
             let args = msg.pointer("/params/arguments").cloned().unwrap_or(json!({}));
-            match ctx.db().and_then(|db| call(db, name, &args)) {
+            // orchestration tools use the user-level store and work outside projects too
+            let res = if crate::orch::is_tool(name) { crate::orch::call(name, &args) } else { ctx.db().and_then(|db| call(db, name, &args)) };
+            match res {
                 Ok(text) => json!({"content": [{"type": "text", "text": text}], "isError": false}),
                 Err(e) => json!({"content": [{"type": "text", "text": format!("error: {e}")}], "isError": true}),
             }

@@ -33,6 +33,51 @@ fn is_anchor(h: &Value) -> bool {
         .unwrap_or(false)
 }
 
+const CMD_MARK: &str = "<!-- installed by anchor -->";
+const CMD_ORCHESTRATE: &str = "---
+description: Orchestrate other Claude sessions with Anchor's orchestration memory
+argument-hint: [goal | end <outcome>]
+---
+<!-- installed by anchor -->
+You are orchestrating other sessions for the user, using Anchor's orchestration memory.
+
+1. If the arguments start with `end`, call the `orchestration_log` tool with kind `end` and the rest as the outcome, confirm in one line, and stop.
+2. Otherwise call `orchestration_start` with goal `$ARGUMENTS` (if that is empty, ask the user for the goal in one line first), plus the ids of the sessions involved and the repositories, if you know them.
+3. If it lists similar past orchestrations, show them in one line each and ask the user whether to resume one or start new; then call it again with `resume` or `new: true`.
+4. Follow the briefing it returns, including its authority rules. Log decisions, delegations and the outcome with `orchestration_log` as you go.
+";
+const CMD_PATTERNS: &str = "---
+description: Review the orchestration patterns Anchor has learned about how you manage sessions
+---
+<!-- installed by anchor -->
+Call the `pattern` tool with op `list`. Show the patterns grouped by CONFIRMED and INFERRED, one line each with its id.
+Ask the user which INFERRED patterns to confirm or reject. Apply only what the user explicitly says, with op `review`.
+";
+
+/// Install /orchestrate and /patterns into a Claude commands folder (never overwrites a user's own file).
+pub fn install_commands(dir: &Path) -> Result<Vec<String>> {
+    std::fs::create_dir_all(dir)?;
+    let mut out = vec![];
+    for (name, body) in [("orchestrate.md", CMD_ORCHESTRATE), ("patterns.md", CMD_PATTERNS)] {
+        let p = dir.join(name);
+        let ours = std::fs::read_to_string(&p).map(|c| c.contains(CMD_MARK)).unwrap_or(true);
+        if ours {
+            std::fs::write(&p, body)?;
+            out.push(p.display().to_string());
+        }
+    }
+    Ok(out)
+}
+
+pub fn uninstall_commands(dir: &Path) {
+    for name in ["orchestrate.md", "patterns.md"] {
+        let p = dir.join(name);
+        if std::fs::read_to_string(&p).is_ok_and(|c| c.contains(CMD_MARK)) {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+}
+
 pub fn install(project: &Path, exe: &Path) -> Result<Vec<String>> {
     let mut changed = Vec::new();
     let claude_dir = project.join(".claude");
@@ -75,10 +120,12 @@ pub fn install(project: &Path, exe: &Path) -> Result<Vec<String>> {
         .insert("anchor".into(), json!({"command": exe_s, "args": ["mcp"]}));
     std::fs::write(&mcp_path, serde_json::to_string_pretty(&mcp)?)?;
     changed.push(mcp_path.display().to_string());
+    changed.extend(install_commands(&claude_dir.join("commands"))?);
     Ok(changed)
 }
 
 pub fn uninstall(project: &Path) -> Result<()> {
+    uninstall_commands(&project.join(".claude").join("commands"));
     let settings_path = project.join(".claude").join("settings.json");
     if settings_path.exists() {
         let mut settings = read_json(&settings_path)?;
@@ -155,11 +202,16 @@ pub fn install_global(exe: &Path) -> Result<Vec<String>> {
     } else {
         out.push("MCP server `anchor` already registered".into());
     }
+    let cmds = user_settings_path()?.with_file_name("commands");
+    for f in install_commands(&cmds)? {
+        out.push(format!("installed command {f}"));
+    }
     Ok(out)
 }
 
 pub fn uninstall_global() -> Result<Vec<String>> {
     let mut out = Vec::new();
+    uninstall_commands(&user_settings_path()?.with_file_name("commands"));
     let path = user_settings_path()?;
     if path.exists() {
         let mut settings = read_json(&path)?;

@@ -75,6 +75,12 @@ enum Cmd {
     },
     /// Counts: stale, disputed, quarantined, ...
     Health,
+    /// Orchestration memory (user level): episodes | show <id> | patterns | confirm <id> | reject <id>
+    Orch {
+        #[arg(default_value = "episodes")]
+        what: String,
+        id: Option<String>,
+    },
     /// Import rules and decisions from existing files (CLAUDE.md, AGENTS.md, docs)
     Import {
         files: Vec<PathBuf>,
@@ -140,14 +146,39 @@ fn run() -> Result<()> {
                 .map(PathBuf::from)
                 .or_else(|| input.get("cwd").and_then(|v| v.as_str()).map(PathBuf::from))
                 .unwrap_or(cwd.clone());
-            let Some(root) = cli.root.clone().or_else(|| project_root(&start)) else {
-                return Ok(()); // not inside a project: stay silent, create nothing
+            if std::env::var("ANCHOR_DISABLE").as_deref() == Ok("1") {
+                return Ok(());
+            }
+            // project memory: only inside a project (outside, it stays silent and creates nothing)
+            let root = cli.root.clone().or_else(|| project_root(&start));
+            let db = root.as_ref().and_then(|r| Db::open(r).ok());
+            let project = match &db {
+                Some(db) => hooks::handle(db, &event, &input).unwrap_or_else(|e| {
+                    eprintln!("anchor hook {event}: {e:#}");
+                    serde_json::Value::Null
+                }),
+                None => serde_json::Value::Null,
             };
-            match Db::open(&root).and_then(|db| hooks::handle(&db, &event, &input)) {
-                Ok(serde_json::Value::String(t)) => println!("{t}"), // plain-text output (PreCompact)
-                Ok(v) if !v.is_null() => println!("{v}"),
-                Ok(_) => {}
-                Err(e) => eprintln!("anchor hook {event}: {e:#}"),
+            // orchestration memory: user-level, any folder, but only once the user has orchestrated
+            let session = input.get("session_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let mut flag_once = || {
+                db.as_ref()
+                    .map(|d| {
+                        let k = format!("orch_nudged:{session}");
+                        let first = d.meta_get(&k).ok().flatten().is_none();
+                        let _ = d.meta_set(&k, "1");
+                        first
+                    })
+                    .unwrap_or(false)
+            };
+            let extra = anchor::orch::hook(&event, &input, root.as_deref(), &mut flag_once).unwrap_or_else(|e| {
+                eprintln!("anchor orchestration hook {event}: {e:#}");
+                None
+            });
+            match hooks::merge_output(&event, project, extra) {
+                serde_json::Value::String(t) => println!("{t}"), // plain-text output (PreCompact)
+                v if !v.is_null() => println!("{v}"),
+                _ => {}
             }
             Ok(())
         }
@@ -212,6 +243,34 @@ fn run() -> Result<()> {
         Cmd::Health => {
             let db = Db::open(&root)?;
             println!("{}", serde_json::to_string_pretty(&knowledge::health(&db)?)?);
+            Ok(())
+        }
+        Cmd::Orch { what, id } => {
+            let Some(o) = anchor::orch::Orch::open(false)? else {
+                println!("no orchestration memory yet (it starts the first time a session uses /orchestrate)");
+                return Ok(());
+            };
+            match (what.as_str(), id) {
+                ("episodes", _) => {
+                    let mut st = o.conn.prepare("SELECT id, status, goal, updated_at FROM episodes ORDER BY updated_at DESC LIMIT 30")?;
+                    let rows: Vec<(String, String, String, i64)> =
+                        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;
+                    for (i, s, g, _) in rows {
+                        println!("{i}  {s:<6}  {}", anchor::knowledge::short(&g, 100));
+                    }
+                }
+                ("show", Some(e)) => println!("{}", o.briefing(&e, "shown on request")?),
+                ("patterns", _) => {
+                    for (i, s, a, t, _) in anchor::orch::all_patterns(&o)? {
+                        println!("[{}] {i}  when {s}: {a}", t.to_uppercase());
+                    }
+                }
+                ("confirm", Some(p)) | ("reject", Some(p)) => {
+                    o.review_pattern(&p, &what)?;
+                    println!("{p}: {what}ed");
+                }
+                _ => anyhow::bail!("usage: anchor orch [episodes | show <id> | patterns | confirm <id> | reject <id>]"),
+            }
             Ok(())
         }
         Cmd::Import { files, dry_run } => {

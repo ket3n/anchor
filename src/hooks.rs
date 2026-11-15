@@ -59,6 +59,25 @@ fn abs_and_rel(db: &Db, input: &Value) -> Option<(PathBuf, String)> {
     Some((abs, rel))
 }
 
+/// Combine the project hook's output with extra context (orchestration). PreCompact output is plain text;
+/// everything else is `hookSpecificOutput.additionalContext`.
+pub fn merge_output(event: &str, project: Value, extra: Option<String>) -> Value {
+    let Some(extra) = extra.filter(|e| !e.is_empty()) else { return project };
+    match project {
+        Value::String(t) => Value::String(format!("{t}\n{extra}")),
+        Value::Null if event == "PreCompact" => Value::String(extra),
+        Value::Null => ctx(event, extra),
+        mut v => {
+            if v.get("hookSpecificOutput").is_none() {
+                v["hookSpecificOutput"] = json!({"hookEventName": event});
+            }
+            let cur = v["hookSpecificOutput"]["additionalContext"].as_str().unwrap_or("").to_string();
+            v["hookSpecificOutput"]["additionalContext"] = Value::String(if cur.is_empty() { extra } else { format!("{cur}\n{extra}") });
+            v
+        }
+    }
+}
+
 fn ctx(event: &str, text: String) -> Value {
     json!({"hookSpecificOutput": {"hookEventName": event, "additionalContext": text}})
 }

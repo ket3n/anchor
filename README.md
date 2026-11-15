@@ -22,8 +22,9 @@ your machine, there is no API key, and it adds no model cost of its own.
 | The agent reads memory as instructions | Items carry provenance and trust (`user` > `verified` > `asserted` > `disputed`); external content is quarantined. |
 | Rules are only advice | A rule can carry a check (regex `forbid` / `require` on paths). Rules you mark `--strict` block the edit; others warn. |
 
-How it plugs in: Claude Code hooks (session start, each prompt, before and after edits) and an MCP server
-with three tools: `recall`, `remember`, `review`.
+How it plugs in: Claude Code hooks (session start, each prompt, before and after edits, compaction) and an MCP
+server with `recall`, `remember`, `review`, plus four orchestration tools (`orchestration_start`,
+`orchestration_context`, `orchestration_log`, `pattern`).
 
 ## Install
 
@@ -105,6 +106,32 @@ anchor sync [--enable]                             # share knowledge through git
 Kinds are free text; Anchor treats `decision`, `rule`, `preference` and `fact` as prescriptive (shown before
 edits, re-anchored quietly). To correct an item, store the new one with `--supersedes <old id>` (the agent
 does this through MCP when you correct it); the old one is never recalled again.
+
+### Orchestrating other sessions
+
+When one Claude session manages others for you, Anchor keeps the orchestration's memory outside that
+session, so it survives compaction and restarts, and learns how *you* orchestrate.
+
+```text
+/orchestrate migrate auth to OAuth across api and web     # start, or resume a similar past one
+/orchestrate end both migrated, tokens rotate daily        # close it with its outcome
+/patterns                                                  # review what Anchor learned about how you manage sessions
+```
+
+- **Episodes** hold the goal, the sessions involved, decisions, delegations (the orchestrator's `SendMessage`
+  calls are logged automatically), worker reports (files a linked worker edited, posted when it stops) and the
+  outcome. After a compaction or in a fresh session, the orchestrator gets the state back; a similar later
+  situation offers to resume instead of starting over.
+- **Patterns** are how you handle recurring situations ("make a worker run the full test suite before it
+  reports done"). Anchor collects your own prompts in orchestrated sessions as evidence; Claude distils
+  patterns from it; they stay INFERRED until you confirm them with `/patterns` or `anchor orch confirm <id>`.
+- **Authority:** the orchestrator acts on confirmed patterns only, treats inferred ones as suggestions, and
+  asks you before anything new, risky or irreversible.
+- Nothing changes for other sessions. A session that starts messaging other sessions is nudged once to ask
+  you whether to use orchestration memory; it never switches on its own.
+- Stored at user level in `~/.anchor/orchestration.db` (`ANCHOR_HOME` to move it), created the first time you
+  orchestrate. `ANCHOR_ORCH_CATALOG=0` stops it from noting which sessions exist. CLI:
+  `anchor orch [episodes | show <id> | patterns | confirm <id> | reject <id>]`.
 
 ### Where things are stored
 

@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import gen_fixture, knowledge  # noqa: E402
 
-ANCHOR = os.path.abspath(os.path.join(HERE, "..", "..", "target", "release", "anchor"))
+ANCHOR = os.environ.get("ANCHOR_BIN") or os.path.abspath(os.path.join(HERE, "..", "..", "target", "release", "anchor"))  # pin per iteration
 MODEL = "sonnet"
 TOOLS = "Read,Edit,Write,MultiEdit,Grep,Glob,Bash(python3 -m unittest),Bash(python3 -m unittest:*)"
 EXTRA_TOOLS = {"C1": ",mcp__memory", "C2": ",mcp__basic-memory", "C3": ",mcp__mcp-search", "C4": ",mcp__mem0", "E": ",mcp__anchor"}

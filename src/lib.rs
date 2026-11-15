@@ -10,6 +10,7 @@ pub mod index;
 pub mod install;
 pub mod knowledge;
 pub mod mcp;
+pub mod orch;
 pub mod recall;
 pub mod report;
 pub mod sync;

@@ -211,3 +211,20 @@ what changed. Results live in bench/results/.
   Housekeeping: do not clean ~/.claude/projects while compaction runs are active (the harness reads those transcripts).
 - Iteration 7 STARTED: compact02 × E,M,B × 4 (scratchpad/iter7) and × C4 × 4 (scratchpad/iter7-c4).
   Resume: same commands as iteration 6 with iter7 / iter7-c4 and `--cases compact02`.
+- 04:37 (Nov 16) quota guard had stopped iter7 at 11/16 (E,M,B) and 2/16 (C4) at 22:49 (session 95%). Session 82% now,
+  resets 07:59: benchmarks resume after that.
+- v0.3.0 feature: orchestration memory (src/orch.rs, user-level ~/.anchor/orchestration.db, created only on first use).
+  Episodes (goal, linked sessions, decisions, delegations, worker reports, outcome), situation matching (shared
+  sessions/repos + goal words) that offers resume instead of starting over, briefing at orchestrator start/resume/
+  compaction, PreCompact steering, automatic delegation logging from SendMessage, worker reports at Stop, evidence
+  from the user's prompts in orchestrated sessions, patterns (INFERRED until the user confirms; superseded/rejected
+  never shown), authority rules in every briefing, a one-time nudge when a normal session starts messaging others.
+  MCP: orchestration_start / _context / _log / pattern (work outside projects). Commands /orchestrate and /patterns
+  installed by `anchor install`. CLI `anchor orch`. Session binding: the PostToolUse hook of orchestration_start
+  (MCP calls carry no session id). Tests: tests/orchestration.rs (5) + integration/engine all green.
+- Benchmark binary pinned: run.py honours ANCHOR_BIN. Iteration 7 resumes with the pre-orchestration build at
+  $S/anchor-iter7/target/release/anchor (commit c8a979b) so the whole iteration uses one binary.
+  Resume iter7: `ANCHOR_BIN=$S/anchor-iter7/target/release/anchor nohup python3 run.py $S/iter7 --runs 4 --parallel 2 --cases compact02 --arms E,M,B >> $S/iter7.log 2>&1 &`
+  and the C4 command with iter7-c4 (C4 does not use the Anchor binary). Clean unfinished C4 dirs (Mem0 cleanup) first.
+- Next benchmark: ORCH-01 (orchestrator delegates, is compacted or replaced, must continue correctly; and replay of
+  user decisions to measure agreement with confirmed patterns).

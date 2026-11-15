@@ -11,6 +11,7 @@ const EXE: &str = env!("CARGO_BIN_EXE_anchor");
 fn hook(event: &str, cwd: &std::path::Path, input: serde_json::Value) -> (String, bool) {
     let mut c = Command::new(EXE)
         .args(["hook", event])
+        .env("ANCHOR_HOME", cwd.join(".test-anchor-home")) // never the developer's real ~/.anchor
         .env_remove("ANCHOR_ROOT")
         .env_remove("CLAUDE_PROJECT_DIR")
         .current_dir(cwd)
@@ -82,7 +83,7 @@ fn mcp_protocol_and_inactive_mode() {
     assert_eq!(init["result"]["serverInfo"]["name"], "anchor");
     assert!(handle_message(&mut ctx, &json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none());
     let list = handle_message(&mut ctx, &json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})).unwrap();
-    assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 3);
+    assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 7, "3 project tools + 4 orchestration tools");
     let call = handle_message(&mut ctx, &json!({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "recall", "arguments": {"query": "x"}}})).unwrap();
     assert_eq!(call["result"]["isError"], true);
     assert!(call["result"]["content"][0]["text"].as_str().unwrap().contains("inactive"));
