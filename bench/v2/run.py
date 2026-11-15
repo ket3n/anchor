@@ -45,6 +45,9 @@ PROMPTS = {
                  "Correction to the earlier rule: from now on, progress messages in workers must use log.debug, not log.info."),
     "cor04_s3": ("Create fleet/workers/drain.py with a function drain(jobs, handle) that calls handle(job) for each job, "
                  "emits a progress message after each one, and returns how many were handled."),
+    "cor05_s2": ("Rename the helper queue_key in fleet/workers/queue.py to job_key and update its uses. "
+                 "Correction to the earlier rule: from now on, progress messages in workers must use log.debug, not log.info, "
+                 "and every progress message must start with the prefix \"[fleet] \"."),
     "cor05_s3": ("Add a function invoice_total(lines) to fleet/billing/invoices.py that sums line['amount'] for each line. "
                  "Also, a rule for billing code: money amounts must be summed with decimal.Decimal, never float."),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
@@ -185,8 +188,6 @@ def grade_answer_stale(final):
 def grade(case, d, final):
     if case == "dec04":
         case = "dec03"  # same task and check, larger knowledge base
-    if case == "cor05":
-        case = "cor04"  # same final task and check; 4 sessions and a 400-note knowledge base
     if case == "stale04":
         ok, info = grade_answer_stale(final)
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
@@ -200,7 +201,7 @@ def grade(case, d, final):
         did = changed(d, ["docs/OPERATIONS.md"])
     elif case == "cor03":
         did = os.path.exists(os.path.join(d, "fleet", "metrics", "latency.py"))
-    elif case == "cor04":
+    elif case in ("cor04", "cor05"):
         did = os.path.exists(os.path.join(d, "fleet", "workers", "drain.py"))
     else:
         did = changed(d, ["fleet/api/cli.py"])
@@ -213,7 +214,7 @@ def run_case(case, arm, i, out):
     r = {"case": case, "arm": arm, "run": i}
     if case in ("cor04", "cor05"):
         r["sessions"] = []
-        pre = ("cor04_s1", "cor04_s2") + (("cor05_s3",) if case == "cor05" else ())
+        pre = ("cor04_s1", "cor04_s2") if case == "cor04" else ("cor04_s1", "cor05_s2", "cor05_s3")
         for k in pre:
             sx = claude(d, mcp, PROMPTS[k], arm)
             r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})

@@ -80,3 +80,9 @@ what changed. Results live in bench/results/.
   correction plus a bigger knowledge base tests that update path harder. It applies equally to every arm.
   Also fixed notes_for: large cases without a target no longer insert None.
 - Iteration 4 STARTED: cor05 × M,B,C1,C2,E × 4 (80 sessions). Out: scratchpad/iter4. Quota guard at 90%, detached.
+- Iteration 4 RESTARTED with a stricter COR-05. In the first attempt, B run 0 passed although its CLAUDE.md
+  held no logging rule at all: an agent picks log.debug unprompted often enough, so "debug not info" does not
+  tell memory from luck. COR-05's correction now also requires every progress message to start with "[fleet] "
+  (cannot be guessed); new checker hidden/check_cor05.py, self-tested on 2 passing and 2 failing samples.
+  The 5 runs from the first attempt are discarded (scratchpad/iter4-discarded), and the rule applies to every arm.
+  COR-04 is unchanged so earlier results stay comparable; its results should be read as an upper bound.
