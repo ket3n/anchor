@@ -144,6 +144,7 @@ fn run() -> Result<()> {
                 return Ok(()); // not inside a project: stay silent, create nothing
             };
             match Db::open(&root).and_then(|db| hooks::handle(&db, &event, &input)) {
+                Ok(serde_json::Value::String(t)) => println!("{t}"), // plain-text output (PreCompact)
                 Ok(v) if !v.is_null() => println!("{v}"),
                 Ok(_) => {}
                 Err(e) => eprintln!("anchor hook {event}: {e:#}"),

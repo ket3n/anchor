@@ -116,7 +116,18 @@ pub fn handle(db: &Db, event: &str, input: &Value) -> Result<Value> {
                     "\nAnchor status: {stale} item(s) stale since code changed, {quarantined} external item(s) awaiting user approval."
                 ));
             }
-            log_event(db, event, input, json!({"indexed": rep.files_indexed, "newly_stale": rep.newly_stale.len(), "synced": synced}));
+            // right after a compaction: restore this session's working set verbatim
+            let mut restored: Vec<String> = vec![];
+            if input.get("source").and_then(|v| v.as_str()) == Some("compact") {
+                let items = crate::compact::working_set(db, &session)?;
+                restored = items.iter().map(|i| i.id.clone()).collect();
+                let t = crate::compact::restore_text(&items);
+                if !t.is_empty() {
+                    s.push('\n');
+                    s.push_str(&t);
+                }
+            }
+            log_event(db, event, input, json!({"indexed": rep.files_indexed, "newly_stale": rep.newly_stale.len(), "synced": synced, "restored": restored}));
             ctx("SessionStart", s)
         }
         "UserPromptSubmit" => {
@@ -245,7 +256,14 @@ pub fn handle(db: &Db, event: &str, input: &Value) -> Result<Value> {
                 Value::Null
             }
         }
-        "PreCompact" | "SessionEnd" => {
+        "PreCompact" => {
+            // stdout of PreCompact becomes instructions for the compaction summary
+            let items = crate::compact::working_set(db, &session)?;
+            log_event(db, event, input, json!({"steered": items.iter().map(|i| &i.id).collect::<Vec<_>>()}));
+            let t = crate::compact::summary_instructions(&items);
+            if t.is_empty() { Value::Null } else { Value::String(t) }
+        }
+        "SessionEnd" => {
             log_event(db, event, input, Value::Null);
             Value::Null
         }

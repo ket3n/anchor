@@ -1,6 +1,7 @@
 //! Anchor — agent-native project knowledge engine.
 //! Rust remembers, computes and enforces; the host agent supplies meaning and judgment.
 
+pub mod compact;
 pub mod db;
 pub mod guard;
 pub mod hooks;

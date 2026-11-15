@@ -155,3 +155,38 @@ what changed. Results live in bench/results/.
   started by SessionStart and a CLI command): write transactions are now BEGIN IMMEDIATE, so they wait on the
   busy timeout instead of failing. Found by the two-machine test failing in the pre-push hook. Tag v0.2.0 had
   been pushed before the fix (its commit was not on main); it is left as is, and v0.2.1 is the release to use.
+- 17:27 quota guard stopped iter5-c4 at 15/16 (session 92%); the unfinished run's Mem0 memories deleted and its dir removed. Resume with the iter5-c4 command after the 21:50 reset.
+
+## Next (user approved; start after the 21:50 quota reset)
+1. Resume iter5-c4 (1 run left, cor05-C4-3) with its resume command above; then analyze iteration 5 in full
+   (C3, C4, E, M) into bench/results/2026-11-15-iter5 and log it. Partial so far: Mem0 ties Anchor on success
+   (DEC-04 4/4, STALE-04 4/4, COR-05 3/3, NEU-01 4/4), slightly cheaper on 3 tasks; STALE-04 tokens Mem0 40k vs E 69k.
+   Note that Mem0's cloud extraction cost is not visible to the harness. claude-mem DEC-04 0/4 (p=0.03 vs E).
+2. Memory-aware compaction ("post-compact restore"):
+   a. Check Claude Code's PreCompact / SessionStart(source=compact) hook contracts (claude-code-guide agent or docs):
+      what input they get, whether output is injected, and whether the summary can be influenced.
+   b. Implement: on SessionStart with source=compact, re-inject a small working set verbatim: user rules in force,
+      corrections made this session (superseded items), items shown this session that are still fresh, stale
+      warnings, and key knowledge for the files edited this session. Budget about 500 tokens. Tests.
+   c. New benchmark case COMPACT-01: rule + correction early in a long session, forced compaction, then a task
+      that depends on them. Arms M, B, C4, E. Grade with a hidden check like COR-05's.
+3. Investigate why E uses ~70% more input tokens than Mem0 on STALE-04 (events.jsonl, transcripts).
+- 18:37 waiting for quota (session 99%, resets 21:49; week 31%).
+- 22:14 quota reset (session 4%, week 32%). Resumed iter5-c4 (15/16). Starting the compaction work.
+- STALE-04 token gap explained (E ~70k vs C4 ~35k input tokens): Anchor's injection is small (249 tokens, 5 items).
+  The extra cost is behaviour: E sees the fact flagged STALE, greps the code (as C4 does), then calls `remember`
+  to correct the stored fact (+1 turn, +1 more when the MCP tool schema must be loaded via ToolSearch). C4 answers
+  and leaves its stale memory wrong for the next session. A one-session case shows only that cost, not the payoff.
+  Proposed STALE-05: same stale fact, session 2 asks again without code access hints; measures whether the
+  correction pays off (cost and correctness over both sessions). Not changing Anchor's behaviour for this.
+- Feature: memory-aware compaction (src/compact.rs). Contract checked against the Claude Code hook docs: PreCompact
+  stdout becomes instructions for the compaction summary; SessionStart(source=compact) output is added to the
+  compacted context; no hook can replace the summary. Anchor now (1) steers the summary to keep this session's
+  rules and corrections in their current form, and (2) re-injects the working set verbatim after compaction:
+  items stored this session (corrections first, with "replaces the earlier ...") , the user's rules in force,
+  items shown this session that are still fresh, knowledge about the files edited; about 500 tokens.
+  Integration test added. Headless `/compact` works with `claude -p "/compact" --resume <id>` (verified).
+- NEW case COMPACT-01: one conversation resumed turn by turn: rule (log.info), correction (log.debug + "[fleet] "
+  prefix), unrelated billing work with its own rule, an unrelated health task, `/compact`, then the drain task.
+  Graded with check_cor05 (strict). The harness records whether the transcript really compacted.
+  Smoke run E: success, compacted=true, 8 items steered and restored (correction and Decimal rule first), $0.68.

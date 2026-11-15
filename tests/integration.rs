@@ -230,3 +230,42 @@ fn import_claude_md_into_linked_items() {
     let rec = run(&["recall", "make fetch_all faster", "--file", "src/feeds.py"]);
     assert!(rec.contains("Never parallelize"), "{rec}");
 }
+
+#[test]
+fn compaction_steers_summary_and_restores_working_set() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join(".git")).unwrap();
+    std::fs::write(d.path().join("drain.py"), "def drain(jobs):\n    return len(jobs)\n").unwrap();
+    let cli = |args: &[&str]| {
+        let o = Command::new(EXE).arg("--root").arg(d.path()).args(args).output().unwrap();
+        assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+        String::from_utf8_lossy(&o.stdout).to_string()
+    };
+    let ev = |name: &str, extra: serde_json::Value| {
+        let mut v = json!({"session_id": "s1", "cwd": d.path(), "hook_event_name": name});
+        v.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+        hook(name, d.path(), v).0
+    };
+    cli(&["index"]);
+    ev("SessionStart", json!({"source": "startup"}));
+    std::thread::sleep(std::time::Duration::from_millis(1100)); // created_at has 1 s resolution
+    let old = cli(&["remember", "Progress messages in workers must use log.info", "--kind", "rule", "--about", "drain.py", "--origin", "user"]);
+    let old_id = serde_json::from_str::<serde_json::Value>(&old).unwrap()["id"].as_str().unwrap().to_string();
+    let new = cli(&["remember", "Progress messages in workers must use log.debug with the prefix [fleet]", "--kind", "rule",
+                    "--about", "drain.py", "--origin", "user", "--supersedes", &old_id]);
+    let new_id = serde_json::from_str::<serde_json::Value>(&new).unwrap()["id"].as_str().unwrap().to_string();
+
+    let steer = ev("PreCompact", json!({"trigger": "auto", "custom_instructions": null}));
+    assert!(!steer.trim_start().starts_with('{'), "PreCompact prints plain text: {steer}");
+    assert!(steer.contains(&new_id) && steer.contains("log.debug with the prefix [fleet]"), "{steer}");
+    assert!(!steer.contains(&old_id), "the superseded rule is not offered as current: {steer}");
+
+    let restored = ev("SessionStart", json!({"source": "compact"}));
+    let ctx: serde_json::Value = serde_json::from_str(restored.trim()).unwrap();
+    let text = ctx["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
+    assert!(text.contains("restored verbatim after compaction") && text.contains("log.debug with the prefix [fleet]"), "{text}");
+    assert!(text.contains("replaces the earlier") && text.contains("log.info"), "says what it replaced: {text}");
+
+    let normal = ev("SessionStart", json!({"source": "startup"}));
+    assert!(!normal.contains("restored verbatim"), "no restore block on a normal start");
+}

@@ -129,6 +129,8 @@ PROMPTS = {
                  "and every progress message must start with the prefix \"[fleet] \"."),
     "cor05_s3": ("Add a function invoice_total(lines) to fleet/billing/invoices.py that sums line['amount'] for each line. "
                  "Also, a rule for billing code: money amounts must be summed with decimal.Decimal, never float."),
+    "c01_extra": ("Add a function health_payload(ok) to fleet/api/health.py that returns {'status': 'ok'} when ok "
+                  "is true and {'status': 'degraded'} otherwise."),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -266,14 +268,15 @@ def setup(d, arm, case, run=0):
     return path
 
 
-def claude(d, mcp, prompt, arm):
+def claude(d, mcp, prompt, arm, sess=None, first=False):
     env = cm_env(d) if arm == "C3" else m0_env(d) if arm == "C4" else dict(os.environ)
     env.pop("CLAUDE_CODE_DISABLE_AUTO_MEMORY", None)
     t = time.time()
     plug = ["--plugin-dir", CM_PLUGIN] if arm == "C3" else ["--plugin-dir", M0_PLUGIN] if arm == "C4" else []
     p = sh(["claude", "-p", prompt, "--model", MODEL, "--setting-sources", "project,local", "--strict-mcp-config",
             "--mcp-config", mcp, "--permission-mode", "default", "--allowedTools", TOOLS + EXTRA_TOOLS.get(arm, ""),
-            "--no-session-persistence", "--output-format", "json"] + plug, d, env=env)
+            "--output-format", "json"] + (["--no-session-persistence"] if sess is None else
+                                         ["--session-id", sess] if first else ["--resume", sess]) + plug, d, env=env)
     try:
         j = json.loads(p.stdout)
     except Exception:
@@ -283,6 +286,16 @@ def claude(d, mcp, prompt, arm):
             "input_tokens": (u.get("input_tokens") or 0) + (u.get("cache_read_input_tokens") or 0)
                             + (u.get("cache_creation_input_tokens") or 0),
             "output_tokens": u.get("output_tokens"), "result": (j.get("result") or "")[:1500], "is_error": j.get("is_error")}
+
+
+def compacted(sess):
+    """Did the transcript record a compaction? (guards against a silent no-op /compact)"""
+    import glob
+    for f in glob.glob(os.path.expanduser(f"~/.claude/projects/*/{sess}.jsonl")):
+        txt = open(f, errors="replace").read()
+        if "compact_boundary" in txt or '"isCompactSummary":true' in txt:
+            return True
+    return False
 
 
 def tests_pass(d):
@@ -305,6 +318,8 @@ def grade_answer_stale(final):
 def grade(case, d, final):
     if case == "dec04":
         case = "dec03"  # same task and check, larger knowledge base
+    if case == "compact01":
+        case = "cor05"  # same final task and the same strict check (log.debug + "[fleet] " prefix, no log.info)
     if case == "stale04":
         ok, info = grade_answer_stale(final)
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
@@ -329,7 +344,24 @@ def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
     mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
-    if case in ("cor04", "cor05"):
+    if case == "compact01":
+        # one conversation (resumed turn by turn): rule, correction, unrelated work, /compact, then the task
+        import uuid
+        sess = str(uuid.uuid4())
+        r["sessions"] = []
+        for n, k in enumerate(("cor04_s1", "cor05_s2", "cor05_s3", "c01_extra")):
+            sx = claude(d, mcp, PROMPTS[k], arm, sess=sess, first=(n == 0))
+            r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
+            commit(d, k)
+        if arm == "C4":
+            time.sleep(90)  # Mem0's background flush, as in the multi-session cases
+        cx = claude(d, mcp, "/compact", arm, sess=sess)
+        r["sessions"].append({x: cx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
+        r["s1"] = {"cost_usd": sum((x["cost_usd"] or 0) for x in r["sessions"]),
+                   "input_tokens": sum((x["input_tokens"] or 0) for x in r["sessions"])}
+        r.update(claude(d, mcp, PROMPTS["cor04_s3"], arm, sess=sess))
+        r["compacted"] = compacted(sess)
+    elif case in ("cor04", "cor05"):
         r["sessions"] = []
         pre = ("cor04_s1", "cor04_s2") if case == "cor04" else ("cor04_s1", "cor05_s2", "cor05_s3")
         for k in pre:
