@@ -120,3 +120,8 @@ what changed. Results live in bench/results/.
   Local plugin store: ~/.claude/plugins/data/mem0-inline (keyed by session and repo), to be removed after the runs.
   E2E check on COR-03: passed; session 1's rule was flushed and extracted, and session 2 was injected it at rank 2.
 - Iteration 5 Mem0 runs STARTED in parallel with iteration 5 (same cases, same window): out scratchpad/iter5-c4.
+- 13:2x session quota hit 95% (guard stopped iter5 at 26/48). Mem0 runs were started by mistake after the cap: stopped within a minute, their 2 half-seeded runs deleted from Mem0 and from disk. Resume both after the 16:50 reset: iter5 (C3,E,M) and iter5-c4 (C4).
+  Resume commands (S = the scratchpad dir):
+  `cd ~/projects/anchor/bench/v2 && CM_PLUGIN=$S/ext/claude-mem/plugin CM_BUN=$(mise where bun@latest)/bin nohup python3 run.py $S/iter5 --runs 4 --parallel 3 --cases dec04,cor05,stale04,neu01 --arms C3,E,M >> $S/iter5.log 2>&1 &`
+  `cd ~/projects/anchor/bench/v2 && M0_PLUGIN=$S/ext/mem0/integrations/claude-code-plugin M0_KEYFILE=$S/secrets/mem0.key nohup python3 run.py $S/iter5-c4 --runs 4 --parallel 2 --cases dec04,cor05,stale04,neu01 --arms C4 >> $S/iter5-c4.log 2>&1 &`
+  then the detached quota guard. Check quota first.
