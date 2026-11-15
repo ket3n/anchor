@@ -202,3 +202,12 @@ what changed. Results live in bench/results/.
   compaction summary kept the correction in all arms, so this case cannot show the restore's value. Cost: E $0.716,
   C4 $0.735, B $0.825, M $1.000 (E -28% vs M). Next: a harder variant (more work between correction and compaction,
   two compactions, correction mentioned once and briefly) before claiming anything about the restore.
+- Iteration 6 COMPLETE (16/16, every run compacted): COMPACT-01 saturated, E 4/4 $0.716, C4 4/4 $0.737, B 4/4 $0.825,
+  M 4/4 $1.000. Results: bench/results/2026-11-15-iter6. No claim about the restore from this case.
+- NEW case COMPACT-02 (harder): correction stated once, in passing, inside a rename request; then billing work, a health
+  task, /compact, a turn reading every parsing/notify module, a shard function, /compact again, then the drain task.
+  Same strict check (check_cor05). Rows record `compactions` (expect 2). Why: COMPACT-01 showed Claude's own summary
+  keeps a correction that was stated prominently and recently; this tests a brief, older correction across two summaries.
+  Housekeeping: do not clean ~/.claude/projects while compaction runs are active (the harness reads those transcripts).
+- Iteration 7 STARTED: compact02 × E,M,B × 4 (scratchpad/iter7) and × C4 × 4 (scratchpad/iter7-c4).
+  Resume: same commands as iteration 6 with iter7 / iter7-c4 and `--cases compact02`.

@@ -1,0 +1,77 @@
+[
+  {
+    "agent": "claude",
+    "case": "compact01",
+    "arm": "E",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 47269.5,
+    "s1_input_tokens": 268929.25,
+    "cost_usd": 0.209828925,
+    "s1_cost_usd": 0.5060652,
+    "tests_pass": 4
+  },
+  {
+    "agent": "claude",
+    "case": "compact01",
+    "arm": "M",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 49727.5,
+    "s1_input_tokens": 360097.0,
+    "cost_usd": 0.27642435,
+    "s1_cost_usd": 0.7232674,
+    "tests_pass": 4,
+    "p_vs_anchor": 1.0
+  },
+  {
+    "agent": "claude",
+    "case": "compact01",
+    "arm": "B",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 46037.5,
+    "s1_input_tokens": 338161.0,
+    "cost_usd": 0.22809552500000002,
+    "s1_cost_usd": 0.5967729750000001,
+    "tests_pass": 4,
+    "p_vs_anchor": 1.0
+  },
+  {
+    "agent": "claude",
+    "case": "compact01",
+    "arm": "C4",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 44085.25,
+    "s1_input_tokens": 274410.25,
+    "cost_usd": 0.207441025,
+    "s1_cost_usd": 0.5299883000000001,
+    "tests_pass": 4,
+    "p_vs_anchor": 1.0
+  }
+]

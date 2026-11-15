@@ -131,6 +131,11 @@ PROMPTS = {
                  "Also, a rule for billing code: money amounts must be summed with decimal.Decimal, never float."),
     "c01_extra": ("Add a function health_payload(ok) to fleet/api/health.py that returns {'status': 'ok'} when ok "
                   "is true and {'status': 'degraded'} otherwise."),
+    "c02_brief": ("Rename the helper queue_key in fleet/workers/queue.py to job_key and update its uses. "
+                  "Oh, and from now on worker progress messages are log.debug (not log.info), each starting with \"[fleet] \"."),
+    "c02_read": "Go through every module in fleet/parsing/ and fleet/notify/ and add a one-line docstring to each public function that lacks one.",
+    "c02_shard": ("Add a function shard_for(key, n) to fleet/storage/keys.py that returns a stable shard index from 0 to n-1 "
+                  "using hashlib.blake2b of the key."),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -298,6 +303,14 @@ def compacted(sess):
     return False
 
 
+def compactions(sess):
+    import glob
+    n = 0
+    for f in glob.glob(os.path.expanduser(f"~/.claude/projects/*/{sess}.jsonl")):
+        n = max(n, open(f, errors="replace").read().count("compact_boundary"))
+    return n
+
+
 def tests_pass(d):
     return sh([sys.executable, "-m", "unittest", "-q"], d).returncode == 0
 
@@ -318,7 +331,7 @@ def grade_answer_stale(final):
 def grade(case, d, final):
     if case == "dec04":
         case = "dec03"  # same task and check, larger knowledge base
-    if case == "compact01":
+    if case in ("compact01", "compact02"):
         case = "cor05"  # same final task and the same strict check (log.debug + "[fleet] " prefix, no log.info)
     if case == "stale04":
         ok, info = grade_answer_stale(final)
@@ -344,7 +357,25 @@ def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
     mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
-    if case == "compact01":
+    if case == "compact02":
+        # harder: correction stated once in passing, more work, two compactions before the task
+        import uuid
+        sess = str(uuid.uuid4())
+        r["sessions"] = []
+        steps = ["cor04_s1", "c02_brief", "cor05_s3", "c01_extra", "/compact", "c02_read", "c02_shard", "/compact"]
+        for n, k in enumerate(steps):
+            if k == "/compact" and arm == "C4":
+                time.sleep(90)
+            sx = claude(d, mcp, PROMPTS.get(k, k), arm, sess=sess, first=(n == 0))
+            r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
+            if k != "/compact":
+                commit(d, k)
+        r["s1"] = {"cost_usd": sum((x["cost_usd"] or 0) for x in r["sessions"]),
+                   "input_tokens": sum((x["input_tokens"] or 0) for x in r["sessions"])}
+        r.update(claude(d, mcp, PROMPTS["cor04_s3"], arm, sess=sess))
+        r["compacted"] = compacted(sess)
+        r["compactions"] = compactions(sess)
+    elif case == "compact01":
         # one conversation (resumed turn by turn): rule, correction, unrelated work, /compact, then the task
         import uuid
         sess = str(uuid.uuid4())
