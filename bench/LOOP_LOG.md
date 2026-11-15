@@ -111,3 +111,12 @@ what changed. Results live in bench/results/.
   so session 2 looked for a CLAUDE.md, found none, and did not apply the rule.
 - Iteration 5 STARTED: arms C3,E,M × cases dec04,cor05,stale04,neu01 × 4 (E and M re-run alongside so the
   comparison is from the same time). Out: scratchpad/iter5.
+- NEW arm C4 = Mem0 (official Claude Code plugin 0.3.3 from github.com/mem0ai/mem0, Mem0 Platform; the user supplied
+  a platform API key, kept in a private scratchpad file, never in the repo or logs). Loaded per session via
+  --plugin-dir; its MCP server is added to the run's config (dropped by --strict-mcp-config otherwise); telemetry off.
+  Each run gets its own Mem0 user_id and the project namespace the plugin itself derives (computed with its own
+  code), notes are seeded verbatim (infer=False, 20 per call), the harness waits 90 s between sessions for the
+  plugin's background flush and cloud extraction, and the run's memories are deleted from Mem0 afterwards.
+  Local plugin store: ~/.claude/plugins/data/mem0-inline (keyed by session and repo), to be removed after the runs.
+  E2E check on COR-03: passed; session 1's rule was flushed and extracted, and session 2 was injected it at rank 2.
+- Iteration 5 Mem0 runs STARTED in parallel with iteration 5 (same cases, same window): out scratchpad/iter5-c4.

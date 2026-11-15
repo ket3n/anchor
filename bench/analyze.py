@@ -10,7 +10,7 @@ from collections import defaultdict
 ARM_NAME = {
     "A0": "No memory (native auto-memory off)", "M": "Claude native memory (baseline)",
     "A": "No memory", "B": "CLAUDE.md (hand-written)", "N": "CLAUDE.md (not updated)",
-    "C1": "Official MCP memory server", "C2": "basic-memory", "C3": "claude-mem", "E": "Anchor",
+    "C1": "Official MCP memory server", "C2": "basic-memory", "C3": "claude-mem", "C4": "Mem0 (platform)", "E": "Anchor",
     "XA": "No memory", "XB": "AGENTS.md (hand-written)", "XN": "AGENTS.md (not updated)", "XE": "Anchor (MCP only)",
 }
 CASE_NAME = {
@@ -28,7 +28,7 @@ CASE_NAME = {
     "stale04": "STALE-04 quick question answered from memory; stale fact; 400 notes",
     "stale02": "STALE-02 outdated fact, task answerable without reading the code",
 }
-ARM_ORDER = ["A0", "M", "A", "B", "N", "C1", "C2", "C3", "E", "XA", "XB", "XN", "XE"]
+ARM_ORDER = ["A0", "M", "A", "B", "N", "C1", "C2", "C3", "C4", "E", "XA", "XB", "XN", "XE"]
 
 
 def wilson(k, n, z=1.96):

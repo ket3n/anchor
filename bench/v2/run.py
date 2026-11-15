@@ -25,7 +25,7 @@ import gen_fixture, knowledge  # noqa: E402
 ANCHOR = os.path.abspath(os.path.join(HERE, "..", "..", "target", "release", "anchor"))
 MODEL = "sonnet"
 TOOLS = "Read,Edit,Write,MultiEdit,Grep,Glob,Bash(python3 -m unittest),Bash(python3 -m unittest:*)"
-EXTRA_TOOLS = {"C1": ",mcp__memory", "C2": ",mcp__basic-memory", "C3": ",mcp__mcp-search", "E": ",mcp__anchor"}
+EXTRA_TOOLS = {"C1": ",mcp__memory", "C2": ",mcp__basic-memory", "C3": ",mcp__mcp-search", "C4": ",mcp__mem0", "E": ",mcp__anchor"}
 # C3 = claude-mem (github.com/thedotmack/claude-mem), loaded per session with --plugin-dir; worker, data and port per run.
 CM_PLUGIN = os.environ.get("CM_PLUGIN", "")
 CM_BUN = os.environ.get("CM_BUN", "")
@@ -37,6 +37,47 @@ def cm_env(d):
              CLAUDE_PLUGIN_ROOT=CM_PLUGIN)
     e["PATH"] = CM_BUN + ":" + e["PATH"]
     return e
+
+
+# C4 = Mem0 (github.com/mem0ai/mem0, official Claude Code plugin 0.3.3, Mem0 Platform). Key from a private file, never logged.
+M0_PLUGIN = os.environ.get("M0_PLUGIN", "")
+M0_KEYFILE = os.environ.get("M0_KEYFILE", "")
+M0_API = "https://api.mem0.ai"
+
+
+def m0_env(d):
+    return dict(os.environ, MEM0_API_KEY=open(M0_KEYFILE).read().strip(), MEM0_TELEMETRY="false",
+                MEM0_USER_ID=open(os.path.join(d, ".m0_user")).read().strip())
+
+
+def m0_call(method, path, body=None):
+    import urllib.request
+    req = urllib.request.Request(M0_API + path, method=method, data=None if body is None else json.dumps(body).encode(),
+                                 headers={"Authorization": "Token " + open(M0_KEYFILE).read().strip(),
+                                          "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.loads(r.read() or b"{}")
+
+
+def m0_scope(d):
+    """The ids the Mem0 plugin itself derives for this repo (computed with its own code)."""
+    p = sh([sys.executable, "-I", "-c", "import sys,json; sys.path.insert(0, sys.argv[1]); import memory_core as m; "
+            "r = m.resolve_repo(sys.argv[2]); print(json.dumps([r.app_id, r.project_id]))",
+            os.path.join(M0_PLUGIN, "core"), d], d)
+    return json.loads(p.stdout)
+
+
+def m0_cleanup(d):
+    """Delete this run's memories from the Mem0 cloud (user and project scopes)."""
+    try:
+        app, proj = m0_scope(d)
+        uid = open(os.path.join(d, ".m0_user")).read().strip()
+        import urllib.parse
+        for q in ({"user_id": uid}, {"agent_id": proj}):
+            m0_call("DELETE", "/v1/memories/?" + urllib.parse.urlencode(q))
+    except Exception as e:
+        return repr(e)[:200]
+    return "ok"
 
 
 def cm_stop(d):
@@ -192,6 +233,20 @@ def setup(d, arm, case, run=0):
         m = json.load(open(os.path.join(CM_PLUGIN, ".mcp.json")))["mcpServers"]["mcp-search"]
         m["env"] = {k: env[k] for k in ("CLAUDE_MEM_DATA_DIR", "CLAUDE_MEM_WORKER_PORT", "CLAUDE_MEM_TELEMETRY", "DO_NOT_TRACK", "CLAUDE_PLUGIN_ROOT")}
         mcp["mcpServers"]["mcp-search"] = m
+    if arm == "C4":
+        import zlib
+        write(os.path.join(d, ".m0_user"), f"bench-{zlib.crc32(d.encode()):08x}")
+        app, proj = m0_scope(d)
+        uid = open(os.path.join(d, ".m0_user")).read().strip()
+        for i in range(0, len(notes), 20):  # verbatim (infer=False), like every other arm's seeded notes
+            m0_call("POST", "/v3/memories/add/", {
+                "agent_id": proj, "user_id": uid, "app_id": app, "infer": False,
+                "messages": [{"role": "user", "content": t} for _, _, t in notes[i:i + 20]],
+                "metadata": {"source": "bench-seed"}})
+        mm = json.load(open(os.path.join(M0_PLUGIN, ".mcp.json")))["mcpServers"]["mem0"]
+        mm["args"] = [a.replace("${CLAUDE_PLUGIN_ROOT}", M0_PLUGIN) for a in mm["args"]]
+        mm["env"] = {"MEM0_CODE_DATA_DIR": os.path.join(d, ".m0data"), "MEM0_TELEMETRY": "false", "MEM0_USER_ID": uid}
+        mcp["mcpServers"]["mem0"] = mm
     if arm == "E":
         sh([ANCHOR, "--root", d, "install", "--project", d], d)
         mcp = json.load(open(os.path.join(d, ".mcp.json")))
@@ -212,10 +267,10 @@ def setup(d, arm, case, run=0):
 
 
 def claude(d, mcp, prompt, arm):
-    env = cm_env(d) if arm == "C3" else dict(os.environ)
+    env = cm_env(d) if arm == "C3" else m0_env(d) if arm == "C4" else dict(os.environ)
     env.pop("CLAUDE_CODE_DISABLE_AUTO_MEMORY", None)
     t = time.time()
-    plug = ["--plugin-dir", CM_PLUGIN] if arm == "C3" else []
+    plug = ["--plugin-dir", CM_PLUGIN] if arm == "C3" else ["--plugin-dir", M0_PLUGIN] if arm == "C4" else []
     p = sh(["claude", "-p", prompt, "--model", MODEL, "--setting-sources", "project,local", "--strict-mcp-config",
             "--mcp-config", mcp, "--permission-mode", "default", "--allowedTools", TOOLS + EXTRA_TOOLS.get(arm, ""),
             "--no-session-persistence", "--output-format", "json"] + plug, d, env=env)
@@ -281,6 +336,8 @@ def run_case(case, arm, i, out):
             sx = claude(d, mcp, PROMPTS[k], arm)
             r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
             commit(d, k)
+            if arm == "C4":
+                time.sleep(90)  # Mem0 flushes after the session ends, then extracts asynchronously in its cloud
         r["s1"] = {"cost_usd": sum((x["cost_usd"] or 0) for x in r["sessions"]),
                    "input_tokens": sum((x["input_tokens"] or 0) for x in r["sessions"])}
         r.update(claude(d, mcp, PROMPTS["cor04_s3"], arm))
@@ -288,6 +345,8 @@ def run_case(case, arm, i, out):
         s1 = claude(d, mcp, PROMPTS["cor03_s1"], arm)
         r["s1"] = {k: s1.get(k) for k in ("cost_usd", "input_tokens", "result", "is_error")}
         commit(d, "session 1")
+        if arm == "C4":
+            time.sleep(90)
         r.update(claude(d, mcp, PROMPTS["cor03_s2"], arm))
     else:
         r.update(claude(d, mcp, PROMPTS[case], arm))
@@ -299,6 +358,8 @@ def run_case(case, arm, i, out):
         r["c3_observer_cost_usd"] = (t.get("inputTokens", 0) * 0.10 + t.get("cacheCreationInputTokens", 0) * 0.125
                                      + t.get("cacheReadInputTokens", 0) * 0.01 + t.get("outputTokens", 0) * 0.50) / 1e6
         cm_stop(d)
+    if arm == "C4":
+        r["c4_cleanup"] = m0_cleanup(d)
     r.update(grade(case, d, r.get("result") or ""))
     return r
 
