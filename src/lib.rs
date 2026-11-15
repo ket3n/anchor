@@ -9,4 +9,5 @@ pub mod install;
 pub mod knowledge;
 pub mod mcp;
 pub mod recall;
+pub mod report;
 pub mod text;

@@ -125,3 +125,12 @@ what changed. Results live in bench/results/.
   `cd ~/projects/anchor/bench/v2 && CM_PLUGIN=$S/ext/claude-mem/plugin CM_BUN=$(mise where bun@latest)/bin nohup python3 run.py $S/iter5 --runs 4 --parallel 3 --cases dec04,cor05,stale04,neu01 --arms C3,E,M >> $S/iter5.log 2>&1 &`
   `cd ~/projects/anchor/bench/v2 && M0_PLUGIN=$S/ext/mem0/integrations/claude-code-plugin M0_KEYFILE=$S/secrets/mem0.key nohup python3 run.py $S/iter5-c4 --runs 4 --parallel 2 --cases dec04,cor05,stale04,neu01 --arms C4 >> $S/iter5-c4.log 2>&1 &`
   then the detached quota guard. Check quota first.
+- 14:37 waiting for quota (97%). 17:02 RESUMED iter5 (26/48) and iter5-c4 (0/16) after reset (session 24%, week 23%); guard detached.
+- Feature: `anchor report [--days N] [--json]`: what Anchor did in a repo (sessions, context shown and its
+  token size, most-shown items, guardrail warnings/blocks, stale flags, corrections superseded). Integration test added.
+  Added README (install on any machine, usage, limits, results), EVALUATING.md (how to judge Anchor on your
+  own work), bench/ab/ab.py (A/B runner for any repo: none vs CLAUDE.md vs Anchor; smoke-tested: none 0/1,
+  CLAUDE.md 1/1, Anchor 1/1), and a release workflow (Linux x86_64 + macOS arm64 binaries on v* tags).
+- Improvement candidate found with `anchor report` on cor05-E-0: 7 edits to queue.py flagged 37 items stale,
+  because every note about a file goes stale on any edit to that file. Noisy in busy files: next, narrow
+  file-level staleness (e.g. only when the symbols a note names change, or when the note's words match changed code).

@@ -128,3 +128,27 @@ fn post_edit_reanchors_seen_decisions_but_flags_facts() {
     assert_eq!(stale(&fact), 1, "descriptive fact stays stale");
     assert!(out.contains(&fact) && !out.contains(&dec), "notice lists only the fact: {out}");
 }
+
+#[test]
+fn report_counts_hook_activity() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join(".git")).unwrap();
+    std::fs::write(d.path().join("pay.py"), "def pay(x):\n    return x\n").unwrap();
+    let ok = Command::new(EXE)
+        .args(["--root", d.path().to_str().unwrap(), "remember",
+               "pay() in pay.py must round amounts to cents before returning", "--kind", "rule", "--about", "pay.py", "--origin", "user"])
+        .status().unwrap().success();
+    assert!(ok);
+    hook("SessionStart", d.path(), json!({"session_id": "s1", "cwd": d.path(), "hook_event_name": "SessionStart"}));
+    hook("UserPromptSubmit", d.path(), json!({"session_id": "s1", "cwd": d.path(), "hook_event_name": "UserPromptSubmit",
+        "prompt": "change pay so it rounds amounts in pay.py"}));
+    let o = Command::new(EXE).args(["--root", d.path().to_str().unwrap(), "report", "--json"]).output().unwrap();
+    assert!(o.status.success());
+    let r: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(r["sessions"], 1);
+    assert_eq!(r["prompts"], 1);
+    assert_eq!(r["context"]["prompts_with_injection"], 1, "the rule about pay.py should be shown: {r}");
+    assert_eq!(r["knowledge"]["from_user"], 1);
+    let text = Command::new(EXE).args(["--root", d.path().to_str().unwrap(), "report"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&text.stdout).contains("not proof it helped"));
+}

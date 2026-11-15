@@ -1,0 +1,33 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: anchor-linux-x86_64
+          - os: macos-latest
+            asset: anchor-macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: test
+        run: cargo test --release -- --test-threads=1
+      - name: package
+        run: |
+          mkdir dist
+          cp target/release/anchor dist/anchor
+          tar -C dist -czf ${{ matrix.asset }}.tar.gz anchor
+          shasum -a 256 ${{ matrix.asset }}.tar.gz > ${{ matrix.asset }}.tar.gz.sha256
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ matrix.asset }}.tar.gz
+            ${{ matrix.asset }}.tar.gz.sha256

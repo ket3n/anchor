@@ -75,6 +75,14 @@ enum Cmd {
     },
     /// Counts: stale, disputed, quarantined, ...
     Health,
+    /// What Anchor did in this project: context shown, warnings, stale flags, corrections
+    Report {
+        /// Only the last N days
+        #[arg(long)]
+        days: Option<u32>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Claude Code hook entry point (reads hook JSON on stdin)
     Hook { event: String },
     /// Run the MCP server on stdio
@@ -190,6 +198,16 @@ fn run() -> Result<()> {
         Cmd::Health => {
             let db = Db::open(&root)?;
             println!("{}", serde_json::to_string_pretty(&knowledge::health(&db)?)?);
+            Ok(())
+        }
+        Cmd::Report { days, json } => {
+            let db = Db::open(&root)?;
+            let r = anchor::report::report(&db, days)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&r)?);
+            } else {
+                print!("{}", anchor::report::render(&r));
+            }
             Ok(())
         }
         Cmd::Install { global: true, .. } => {
