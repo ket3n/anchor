@@ -60,3 +60,23 @@ what changed. Results live in bench/results/.
 - Status: NOT STARTED — waiting for quota (session 83% at 01:2x, resets 05:29). Start with:
   `cd ~/projects/anchor/bench/v2 && nohup python3 run.py /tmp/claude-1000/-home-ketan/1985f893-3261-4bcf-89dd-d5811ca527f4/scratchpad/iter3 --runs 4 --parallel 3 --cases cor04,dec03,dec04 > /tmp/claude-1000/-home-ketan/1985f893-3261-4bcf-89dd-d5811ca527f4/scratchpad/iter3.log 2>&1 &`
   then arm the quota guard (90%).
+- 02:37 waiting for quota (session 85%, resets 05:30; week reset to 0%).
+- 04:37 waiting for quota (session 86%, resets 05:29).
+- 06:37 Iteration 3 STARTED (quota reset to 0%). Out: scratchpad/iter3, 60 runs planned.
+- Quota guard now runs detached (nohup, log scratchpad/guard3.log); Monitor expiry had killed the previous one. 29/60 done, early E vs M: dec03 $0.089 vs $0.113, dec04 $0.082 vs $0.118, cor04 $0.036 vs $0.052 (partial).
+- Iteration 3 COMPLETE (60/60). Results: bench/results/2026-11-15-iter3.
+  Success: E 12/12. M: dec03 4/4, dec04 4/4, cor04 3/4. B cor04 3/4. C1 dec03 2/4, dec04 3/4. C2 12/12.
+  Failures checked by hand, none are harness errors:
+  - cor04 M run 2: native memory rewrote the rule file to log.debug but left the MEMORY.md index line
+    saying log.info; session 3 followed the index and wrote log.info.
+  - cor04 B run 2: the session-2 agent never updated CLAUDE.md, which still said log.info.
+  - Anchor: in all 4 runs the old rule got superseded_by=<new id>; session 3 was injected only the new rule.
+  Cost E vs M: dec03 $0.087 vs $0.098 (-11%; was +11% in iter2, so the silent re-anchor fix worked),
+  dec04 $0.091 vs $0.135 (-33%), cor04 $0.153 vs $0.195 (-22%). E has the fewest input tokens on dec03 and dec04.
+  No case where E loses or ties M at higher cost, so no Anchor change this iteration.
+- Harness: NEW case COR-05 (harder; same final task and checker as COR-04). 400-note knowledge base,
+  4 sessions: rule set, rule corrected, an unrelated billing session with its own new rule, then the drain task.
+  Why: success is saturated; COR-04 exposed stale-memory failures in M and B, and a longer gap after the
+  correction plus a bigger knowledge base tests that update path harder. It applies equally to every arm.
+  Also fixed notes_for: large cases without a target no longer insert None.
+- Iteration 4 STARTED: cor05 × M,B,C1,C2,E × 4 (80 sessions). Out: scratchpad/iter4. Quota guard at 90%, detached.

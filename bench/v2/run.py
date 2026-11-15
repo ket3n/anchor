@@ -45,6 +45,8 @@ PROMPTS = {
                  "Correction to the earlier rule: from now on, progress messages in workers must use log.debug, not log.info."),
     "cor04_s3": ("Create fleet/workers/drain.py with a function drain(jobs, handle) that calls handle(job) for each job, "
                  "emits a progress message after each one, and returns how many were handled."),
+    "cor05_s3": ("Add a function invoice_total(lines) to fleet/billing/invoices.py that sums line['amount'] for each line. "
+                 "Also, a rule for billing code: money amounts must be summed with decimal.Decimal, never float."),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -183,6 +185,8 @@ def grade_answer_stale(final):
 def grade(case, d, final):
     if case == "dec04":
         case = "dec03"  # same task and check, larger knowledge base
+    if case == "cor05":
+        case = "cor04"  # same final task and check; 4 sessions and a 400-note knowledge base
     if case == "stale04":
         ok, info = grade_answer_stale(final)
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
@@ -207,9 +211,10 @@ def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
     mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
-    if case == "cor04":
+    if case in ("cor04", "cor05"):
         r["sessions"] = []
-        for k in ("cor04_s1", "cor04_s2"):
+        pre = ("cor04_s1", "cor04_s2") + (("cor05_s3",) if case == "cor05" else ())
+        for k in pre:
             sx = claude(d, mcp, PROMPTS[k], arm)
             r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
             commit(d, k)

@@ -48,7 +48,7 @@ def distractors(n=40):
 
 TARGETS["dec04"] = TARGETS["dec03"]
 TARGETS["stale04"] = TARGETS["stale03"]
-LARGE = {"dec04", "stale04"}
+LARGE = {"dec04", "stale04", "cor05"}
 
 
 def notes_for(case, run=0):
@@ -60,6 +60,6 @@ def notes_for(case, run=0):
     if case in LARGE:
         base = distractors(399)
         pos = random.Random(1000 + run).randrange(0, 400)
-        return base[:pos] + [t] + base[pos:]
+        return base[:pos] + ([t] if t else []) + base[pos:]
     base = distractors()
     return ([t] if t else []) + base
