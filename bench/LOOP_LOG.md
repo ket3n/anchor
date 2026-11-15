@@ -190,3 +190,15 @@ what changed. Results live in bench/results/.
   prefix), unrelated billing work with its own rule, an unrelated health task, `/compact`, then the drain task.
   Graded with check_cor05 (strict). The harness records whether the transcript really compacted.
   Smoke run E: success, compacted=true, 8 items steered and restored (correction and Decimal rule first), $0.68.
+- Iteration 6 STARTED: compact01 × E,M,B × 4 (scratchpad/iter6) and × C4 × 4 (scratchpad/iter6-c4); Anchor v0.2.1+compaction.
+  Resume: `cd ~/projects/anchor/bench/v2 && nohup python3 run.py $S/iter6 --runs 4 --parallel 2 --cases compact01 --arms E,M,B >> $S/iter6.log 2>&1 &`
+  and `M0_PLUGIN=$S/ext/mem0/integrations/claude-code-plugin M0_KEYFILE=$S/secrets/mem0.key nohup python3 run.py $S/iter6-c4 --runs 4 --parallel 1 --cases compact01 --arms C4 >> $S/iter6-c4.log 2>&1 &`
+  Check `compacted` is true in every graded row; a run that did not compact is a harness error.
+- Iteration 5 COMPLETE (C3,E,M 48/48; C4 16/16). Results: bench/results/2026-11-15-iter5 (merged).
+  Success: E 16/16, C4 16/16, M 13/16 (COR-05 1/4), C3 12/16 (DEC-04 0/4, p=0.03 vs E).
+  Cost E vs C4: DEC-04 $0.097 vs $0.095, COR-05 $0.206 vs $0.209, STALE-04 $0.047 vs $0.036, NEU-01 $0.043 vs $0.041.
+  Mem0 ties Anchor on success and cost except STALE-04 (explained above). Mem0's cloud extraction cost is not counted.
+- Iteration 6 partial (14/16): COMPACT-01 saturated: E 4/4, M 4/4, B 4/4, C4 2/2, every run compacted=true. Claude's own
+  compaction summary kept the correction in all arms, so this case cannot show the restore's value. Cost: E $0.716,
+  C4 $0.735, B $0.825, M $1.000 (E -28% vs M). Next: a harder variant (more work between correction and compaction,
+  two compactions, correction mentioned once and briefly) before claiming anything about the restore.
