@@ -86,3 +86,6 @@ what changed. Results live in bench/results/.
   (cannot be guessed); new checker hidden/check_cor05.py, self-tested on 2 passing and 2 failing samples.
   The 5 runs from the first attempt are discarded (scratchpad/iter4-discarded), and the rule applies to every arm.
   COR-04 is unchanged so earlier results stay comparable; its results should be read as an upper bound.
+- 10:37 iter4 paused by quota guard at 10/20 (session 100% at 08:45, resets 11:29; week 9%). Resume with the same iter4 command + detached guard.
+- 11:53 iter4 RESUMED at 10/20 (session reset to 5%). Partial cor05: E 2/2, M 1/2, B 1/2, C1 2/2, C2 0/2.
+- 12:0x Claude Doc report updated (rev 17): new section 'Comparison benchmark results (v2)' with iter1-4 success, E vs M cost, failure analysis, Anchor changes and benchmark corrections.
