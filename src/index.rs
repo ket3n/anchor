@@ -568,17 +568,43 @@ fn resolve_links(db: &Db) -> Result<()> {
 /// a softer flag one hop (callers of changed code, knowledge that depends_on stale knowledge).
 pub fn propagate(db: &Db, report: &mut IndexReport) -> Result<()> {
     // 1. direct: about-edge anchor hash differs from current target hash, or target is gone
-    let direct: Vec<(String, String)> = {
+    // upgrade file anchors written before fingerprints while their file is still unchanged
+    let legacy: Vec<(String, String, String, String)> = {
         let mut st = db.conn.prepare(
-            "SELECT DISTINCT k.id, k.content FROM edges e
+            "SELECT k.id, k.content, k.kind, e.dst FROM edges e
+             JOIN nodes k ON k.id = e.src JOIN nodes t ON t.id = e.dst
+             WHERE e.type='about' AND t.kind='file' AND e.anchor_hash = t.ast_hash",
+        )?;
+        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?
+    };
+    for (id, c, kind, dst) in legacy {
+        let v = crate::knowledge::anchor_value(db, &dst, &c, &kind)?;
+        db.conn.execute("UPDATE edges SET anchor_hash=?3 WHERE src=?1 AND dst=?2 AND type='about'", params![id, dst, v])?;
+    }
+    // candidates: the anchor differs from the target's current hash (file anchors carry the file hash
+    // after "fp:"), or the target is gone; knowledge::check_anchor decides with the precise fingerprint
+    let cand: Vec<(String, String, String, String, String)> = {
+        let mut st = db.conn.prepare(
+            "SELECT k.id, k.content, k.kind, e.dst, e.anchor_hash FROM edges e
              JOIN nodes k ON k.id = e.src
              LEFT JOIN nodes t ON t.id = e.dst
              WHERE e.type='about' AND k.origin != 'code' AND k.superseded_by IS NULL AND k.stale != 1
                AND e.anchor_hash IS NOT NULL
-               AND (t.id IS NULL OR COALESCE(t.ast_hash,'') != e.anchor_hash)",
+               AND (t.id IS NULL OR (COALESCE(t.ast_hash,'') != e.anchor_hash
+                    AND e.anchor_hash NOT LIKE 'fp:' || COALESCE(t.ast_hash,'') || ':%'))",
         )?;
-        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?
+        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?.collect::<Result<_, _>>()?
     };
+    let mut direct: Vec<(String, String)> = vec![];
+    for (id, c, kind, dst, stored) in cand {
+        let (valid, refreshed) = crate::knowledge::check_anchor(db, &dst, &stored, &c, &kind)?;
+        if let Some(v) = refreshed {
+            db.conn.execute("UPDATE edges SET anchor_hash=?3 WHERE src=?1 AND dst=?2 AND type='about'", params![id, dst, v])?;
+        }
+        if !valid && !direct.iter().any(|(d, _)| *d == id) {
+            direct.push((id, c));
+        }
+    }
     for (id, c) in direct {
         db.conn.execute("UPDATE nodes SET stale=1, updated_at=?2 WHERE id=?1", params![id, now()])?;
         report.newly_stale.push((id, 1, c));

@@ -134,3 +134,11 @@ what changed. Results live in bench/results/.
 - Improvement candidate found with `anchor report` on cor05-E-0: 7 edits to queue.py flagged 37 items stale,
   because every note about a file goes stale on any edit to that file. Noisy in busy files: next, narrow
   file-level staleness (e.g. only when the symbols a note names change, or when the note's words match changed code).
+- Improvement (from `anchor report`): precise file-level staleness. A note linked to a whole file now goes stale
+  only when what it names changes: the named symbols' AST hashes plus the non-comment lines mentioning other
+  identifiers it names (DEFAULT_LIMIT, ...). A note naming nothing in the file goes stale on any logic change only
+  if it is a `fact`; rules, decisions, preferences, gotchas and notes keep (they guide future work). A deleted file
+  still stales everything. Old anchors upgrade in place. ENG-13 added; ENG-03 (whole-file facts, constants,
+  comment edits) still passes. Replaying the COR-05 queue.py edits on the 400-note base: 17 stale flags -> 0
+  (none of those notes names the changed code). Built at 17:24, after iteration 5's Anchor runs (last 17:07),
+  so iteration 5 used the previous binary throughout.

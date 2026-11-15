@@ -34,6 +34,122 @@ pub struct RememberInput {
 }
 
 /// Resolve an `about` reference to concrete node ids + their current hash.
+/// Facts describe what the code does now, so any logic change to their file may make them false. Other
+/// kinds (decision, rule, preference, gotcha, note) guide future work and stay true when unrelated code
+/// changes; they go stale only when the code they name changes.
+pub fn is_descriptive(kind: &str) -> bool {
+    kind == "fact"
+}
+
+/// Code-like words of a note: identifiers with `_`, an inner capital or a digit (DEFAULT_LIMIT, fetchAll,
+/// v2_api). Plain English words are left out so a rule like "do not log raw values" names nothing.
+fn code_words(note: &str) -> Vec<String> {
+    text::raw_identifiers(note)
+        .into_iter()
+        .filter(|w| !w.contains('/') && !w.contains('.') && !w.contains(':'))
+        .filter(|w| w.contains('_') || w.chars().skip(1).any(|c| c.is_uppercase()) || w.chars().any(|c| c.is_ascii_digit()))
+        .collect()
+}
+
+/// What a note anchored to a whole file depends on: the symbols of that file it names (their AST hash)
+/// and the lines mentioning the other identifiers it names. `None` = the note names nothing in the file:
+/// facts then depend on the whole file, other kinds on nothing (`-`), since an edit elsewhere in
+/// the file does not make a rule or a note false.
+fn file_fingerprint(db: &Db, path: &str, note: &str, kind: &str) -> Result<String> {
+    let src = std::fs::read_to_string(db.root.join(path)).unwrap_or_default();
+    let mut words: Vec<String> = code_words(note);
+    // plain words that are symbol names in this file count too (fetch, pay, main)
+    let mut st = db.conn.prepare("SELECT short_name, ast_hash FROM nodes WHERE kind='symbol' AND path=?1")?;
+    let syms: Vec<(String, String)> = st
+        .query_map(params![path], |r| Ok((r.get::<_, Option<String>>(0)?.unwrap_or_default(), r.get::<_, Option<String>>(1)?.unwrap_or_default())))?
+        .collect::<Result<_, _>>()?;
+    for w in text::raw_identifiers(note) {
+        if syms.iter().any(|(n, _)| *n == w) && !words.contains(&w) {
+            words.push(w);
+        }
+    }
+    let mut parts: Vec<String> = vec![];
+    for w in &words {
+        let hashes: Vec<&String> = syms.iter().filter(|(n, _)| n == w).map(|(_, h)| h).collect();
+        if !hashes.is_empty() {
+            parts.extend(hashes.into_iter().map(|h| format!("{w}={h}")));
+            continue;
+        }
+        let re = regex::Regex::new(&format!(r"\b{}\b", regex::escape(w)))?;
+        let is_comment = |l: &str| {
+            let t = l.trim_start();
+            ["#", "//", "/*", "*", "--", "<!--"].iter().any(|m| t.starts_with(m))
+        };
+        let lines: Vec<String> = src
+            .lines()
+            .filter(|l| re.is_match(l) && !is_comment(l))
+            .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+            .collect();
+        if !lines.is_empty() {
+            parts.push(format!("{w}:{}", lines.join("\n")));
+        }
+    }
+    if parts.is_empty() {
+        return Ok(if is_descriptive(kind) { "whole".into() } else { "-".into() });
+    }
+    parts.sort();
+    Ok(blake3::hash(parts.join("\n").as_bytes()).to_hex()[..16].to_string())
+}
+
+/// The anchor stored on an `about` edge. Symbols: their AST hash. Files: `fp:<file hash>:<fingerprint>`
+/// (see [`file_fingerprint`]); the file hash lets an unchanged file be skipped without reading it.
+pub fn anchor_value(db: &Db, target: &str, note: &str, kind: &str) -> Result<Option<String>> {
+    let row: Option<(String, Option<String>, Option<String>)> = db
+        .conn
+        .query_row("SELECT kind, path, ast_hash FROM nodes WHERE id=?1", params![target], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .optional()?;
+    let Some((tkind, path, hash)) = row else { return Ok(None) };
+    match (tkind.as_str(), path, hash) {
+        ("file", Some(p), Some(h)) => Ok(Some(format!("fp:{h}:{}", file_fingerprint(db, &p, note, kind)?))),
+        (_, _, h) => Ok(h),
+    }
+}
+
+/// Is an existing anchor still valid for the current code? Returns (still_valid, refreshed anchor to store).
+pub fn check_anchor(db: &Db, target: &str, stored: &str, note: &str, kind: &str) -> Result<(bool, Option<String>)> {
+    let row: Option<(String, Option<String>)> = db
+        .conn
+        .query_row("SELECT kind, ast_hash FROM nodes WHERE id=?1", params![target], |r| Ok((r.get(0)?, r.get(1)?)))
+        .optional()?;
+    let Some((tkind, cur)) = row else { return Ok((false, None)) };
+    let cur = cur.unwrap_or_default();
+    if tkind != "file" {
+        return Ok((cur == stored, None));
+    }
+    let fresh = anchor_value(db, target, note, kind)?;
+    let Some(rest) = stored.strip_prefix("fp:") else {
+        // anchor written before fingerprints: valid while the file is unchanged; upgrade it in place
+        return Ok(if cur == stored { (true, fresh) } else { (false, None) });
+    };
+    let (old_file, old_fp) = rest.split_once(':').unwrap_or((rest, "whole"));
+    if old_file == cur {
+        return Ok((true, None));
+    }
+    let new_fp = fresh.as_deref().and_then(|f| f.rsplit(':').next()).unwrap_or("whole").to_string();
+    let valid = old_fp == "-" || (old_fp != "whole" && old_fp == new_fp);
+    Ok((valid, if valid { fresh } else { None }))
+}
+
+/// Point every `about` edge of `id` at the current code.
+pub fn reanchor(db: &Db, id: &str) -> Result<()> {
+    let (content, kind): (String, String) =
+        db.conn.query_row("SELECT content, kind FROM nodes WHERE id=?1", params![id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let targets: Vec<String> = {
+        let mut st = db.conn.prepare("SELECT dst FROM edges WHERE src=?1 AND type='about'")?;
+        st.query_map(params![id], |r| r.get(0))?.collect::<Result<_, _>>()?
+    };
+    for t in targets {
+        let v = anchor_value(db, &t, &content, &kind)?;
+        db.conn.execute("UPDATE edges SET anchor_hash=?3 WHERE src=?1 AND dst=?2 AND type='about'", params![id, t, v])?;
+    }
+    Ok(())
+}
+
 pub fn resolve_about(db: &Db, target: &str) -> Result<Vec<(String, Option<String>)>> {
     let t = target.trim().trim_start_matches("./");
     if t.is_empty() {
@@ -160,7 +276,8 @@ pub fn remember(db: &Db, inp: RememberInput) -> Result<Value> {
         if targets.is_empty() {
             unresolved.push(a.clone());
         }
-        for (tid, h) in targets {
+        for (tid, _) in targets {
+            let h = anchor_value(db, &tid, &content, &kind)?;
             db.conn.execute(
                 "INSERT INTO edges(src,dst,type,weight,anchor_hash) VALUES(?1,?2,'about',1.0,?3)
                  ON CONFLICT(src,dst,type) DO UPDATE SET anchor_hash=excluded.anchor_hash",
@@ -273,22 +390,14 @@ pub fn review(db: &Db, id: &str, verdict: &str, into: Option<&str>, note: Option
             let new_trust = if trust == "user" { "user" } else if trust == "quarantined" { "quarantined" } else { "verified" };
             db.conn.execute("UPDATE nodes SET trust=?2, stale=0, updated_at=?3 WHERE id=?1", params![id, new_trust, t])?;
             // re-anchor to the current code
-            db.conn.execute(
-                "UPDATE edges SET anchor_hash = (SELECT ast_hash FROM nodes WHERE nodes.id = edges.dst)
-                 WHERE src=?1 AND type='about'",
-                params![id],
-            )?;
+            reanchor(db, id)?;
         }
         "approve" => {
             db.conn.execute(
                 "UPDATE nodes SET trust=CASE WHEN origin='user' THEN 'user' ELSE 'verified' END, stale=0, updated_at=?2 WHERE id=?1",
                 params![id, t],
             )?;
-            db.conn.execute(
-                "UPDATE edges SET anchor_hash = (SELECT ast_hash FROM nodes WHERE nodes.id = edges.dst)
-                 WHERE src=?1 AND type='about'",
-                params![id],
-            )?;
+            reanchor(db, id)?;
         }
         "broken" | "disputed" => {
             db.conn.execute("UPDATE nodes SET trust='disputed', updated_at=?2 WHERE id=?1", params![id, t])?;

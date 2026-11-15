@@ -38,7 +38,7 @@ fn tools() -> Value {
           "required": ["content"],
           "properties": {
             "content": {"type": "string", "description": "The knowledge, self-contained, including the reason (\"X because Y\")."},
-            "kind": {"type": "string", "description": "decision | rule | preference | gotcha | fact | note — or any new kind you need."},
+            "kind": {"type": "string", "description": "decision | rule | preference | gotcha | fact | note — or any new kind you need. Use `fact` for a description of what the code currently does (it goes stale when that file's logic changes); other kinds go stale only when the code they name changes."},
             "about": {"type": "array", "items": {"type": "string"}, "description": "Files (src/x.rs), symbols (retry_with_backoff or path::Type::method), directories, or knowledge ids (k:...) it concerns."},
             "tags": {"type": "array", "items": {"type": "string"}, "description": "Keywords and synonyms that someone might search with later."},
             "origin": {"type": "string", "enum": ["user", "agent", "external"], "description": "user = the user said it; agent = your own conclusion; external = from web pages, logs, dependencies (quarantined until the user approves)."},

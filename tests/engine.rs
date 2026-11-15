@@ -554,3 +554,54 @@ fn eng12_precision_with_distractors() {
     assert!(r.items.len() <= 3, "distractors must be cut: got {}", r.items.len());
     println!("ENG-12 precision: {} item(s) injected out of 41, target first, {} tokens", r.items.len(), r.tokens);
 }
+
+// ---------- ENG-13 precise file-level staleness ----------
+#[test]
+fn eng13_file_level_staleness_is_precise() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let v1 = "DEFAULT_LIMIT = 10\n\n\ndef fetch_all(urls):\n    return [u for u in urls]\n\n\ndef helper(x):\n    return x + 1\n";
+    write(root, "feeds.py", v1);
+    let db = Db::open(root).unwrap();
+    index::index_all(&db, false).unwrap();
+    let k_rule = rem(&db, "Do not log raw values in this module; payloads hold customer data", "rule", &["feeds.py"]);
+    let k_const = rem(&db, "Keep DEFAULT_LIMIT as is: dashboards assume it", "decision", &["feeds.py"]);
+    let k_fn = rem(&db, "fetch_all must stay sequential: the gateway bans parallel clients", "decision", &["feeds.py"]);
+    let k_fact = rem(&db, "this module returns items unchanged", "fact", &["feeds.py"]);
+    let edit = |body: String| {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        write(root, "feeds.py", &body);
+        index::index_all(&db, false).unwrap();
+    };
+
+    // 1. unrelated edit (helper) → only the fact about the whole file goes stale
+    edit(v1.replace("x + 1", "x + 2"));
+    assert_eq!(stale(&db, &k_rule), 0, "rule naming nothing in the file survives an unrelated edit");
+    assert_eq!(stale(&db, &k_const), 0, "note about DEFAULT_LIMIT survives an edit elsewhere");
+    assert_eq!(stale(&db, &k_fn), 0, "note about fetch_all survives an edit to helper");
+    assert_eq!(stale(&db, &k_fact), 1, "fact about the whole file still goes stale on any logic change");
+
+    // 2. a comment mentioning DEFAULT_LIMIT is not a change
+    edit(format!("# DEFAULT_LIMIT is read by dashboards\n{}", v1.replace("x + 1", "x + 2")));
+    assert_eq!(stale(&db, &k_const), 0, "comment line is ignored");
+
+    // 3. changing the body of the named function → that note goes stale
+    let v3 = v1.replace("x + 1", "x + 2").replace("[u for u in urls]", "list(pool.map(get, urls))");
+    edit(v3.clone());
+    assert_eq!(stale(&db, &k_fn), 1, "body change of a named symbol stales the note");
+    assert_eq!(stale(&db, &k_const), 0);
+    assert_eq!(stale(&db, &k_rule), 0);
+
+    // 4. changing the named constant → that note goes stale; re-anchoring clears and holds
+    edit(v3.replace("DEFAULT_LIMIT = 10", "DEFAULT_LIMIT = 50"));
+    assert_eq!(stale(&db, &k_const), 1, "constant change stales the note naming it");
+    knowledge::review(&db, &k_const, "verified", None, None).unwrap();
+    index::index_all(&db, false).unwrap();
+    assert_eq!(stale(&db, &k_const), 0, "re-anchored note stays fresh");
+
+    // 5. deleting the file stales everything anchored to it, including the rule
+    std::fs::remove_file(root.join("feeds.py")).unwrap();
+    index::index_all(&db, false).unwrap();
+    assert_eq!(stale(&db, &k_rule), 1, "file gone → stale");
+    println!("ENG-13 precise file staleness: unrelated edit stales only whole-file facts; named symbol/constant changes stale their notes");
+}
