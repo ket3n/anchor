@@ -202,7 +202,14 @@ fn validate_check(check: &Value) -> Result<()> {
     Ok(())
 }
 
+/// Store knowledge (and keep the shared knowledge.jsonl in step when sharing is on).
 pub fn remember(db: &Db, inp: RememberInput) -> Result<Value> {
+    let v = remember_inner(db, inp)?;
+    crate::sync::autosave(db);
+    Ok(v)
+}
+
+fn remember_inner(db: &Db, inp: RememberInput) -> Result<Value> {
     let content = inp.content.trim().to_string();
     if content.is_empty() {
         bail!("content is empty");
@@ -375,7 +382,14 @@ pub fn short(s: &str, n: usize) -> String {
     }
 }
 
+/// Review an item (and keep the shared knowledge.jsonl in step when sharing is on).
 pub fn review(db: &Db, id: &str, verdict: &str, into: Option<&str>, note: Option<&str>) -> Result<Value> {
+    let v = review_inner(db, id, verdict, into, note)?;
+    crate::sync::autosave(db);
+    Ok(v)
+}
+
+fn review_inner(db: &Db, id: &str, verdict: &str, into: Option<&str>, note: Option<&str>) -> Result<Value> {
     let exists: Option<(String, String)> = db
         .conn
         .query_row("SELECT trust, origin FROM nodes WHERE id=?1", params![id], |r| Ok((r.get(0)?, r.get(1)?)))

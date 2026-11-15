@@ -16,7 +16,7 @@ your machine, there is no API key, and it adds no model cost of its own.
 
 | Problem with plain memory | What Anchor does |
 | --- | --- |
-| Notes describe code that has since changed | Memories are anchored to files and symbols (tree-sitter, normalized AST hashes). An edit flags the memories about that code as stale; callers get a softer flag. |
+| Notes describe code that has since changed | Memories are anchored to files and symbols (tree-sitter, normalized AST hashes). A memory goes stale only when the code it names changes (a function's body, a constant's line); callers get a softer flag. Facts about a whole file go stale on any logic change to it. |
 | A corrected rule lives on next to the new one | A correction is stored with `supersedes`, which retires the old item; superseded items are never recalled. |
 | Whole memory files are loaded every session | Recall ranks by name, lexical and call-graph closeness, and injects only the few items that matter (typically 1–5, ~100–600 tokens). |
 | The agent reads memory as instructions | Items carry provenance and trust (`user` > `verified` > `asserted` > `disputed`); external content is quarantined. |
@@ -69,6 +69,19 @@ anchor uninstall --project /path/to/repo
 
 ## Using it
 
+### Start from what you already have
+
+```sh
+cd /path/to/repo
+anchor import --dry-run      # reads CLAUDE.md / AGENTS.md (or the files you name) and shows what it would store
+anchor import                # stores each bullet or short paragraph as a rule / decision / preference / note,
+                             # linked to the files, symbols and constants it mentions
+```
+
+You can keep your CLAUDE.md; importing adds linking, staleness and corrections on top.
+
+### Day to day
+
 Mostly you don't do anything: work as usual. The agent sees a short "Anchor project memory" block when
 something relevant is stored, and saves decisions and rules with `remember` when you state them
 ("from now on…", "we decided…", "don't…").
@@ -85,6 +98,8 @@ anchor list                                       # active items (--all includes
 anchor review <id> verified|broken|forget|used|ignored
 anchor health                                     # stale, disputed, quarantined counts
 anchor report [--days 7] [--json]                 # what Anchor did in this repo (see EVALUATING.md)
+anchor import [FILE...] [--dry-run]                # bring in CLAUDE.md / AGENTS.md / docs
+anchor sync [--enable]                             # share knowledge through git
 ```
 
 Kinds are free text; Anchor treats `decision`, `rule`, `preference` and `fact` as prescriptive (shown before
@@ -96,8 +111,22 @@ does this through MCP when you correct it); the old one is never recalled again.
 `<repo>/.anchor/anchor.db` (SQLite) and `<repo>/.anchor/events.jsonl` (a local log of hook events,
 which includes your prompt text; it rotates at 10 MB). `.anchor/` is git-ignored automatically.
 
-**Memory is per machine.** Each clone builds its own index and memory. Copy `.anchor/anchor.db` to move
-it; syncing across machines is not built in yet.
+### Same memory on several machines (or a team)
+
+```sh
+anchor sync --enable          # writes .anchor/knowledge.jsonl and lets git track it
+git add .anchor/.gitignore .anchor/knowledge.jsonl && git commit -m "Share Anchor knowledge"
+```
+
+From then on every `remember`/`review` rewrites `knowledge.jsonl` (one item per line, sorted, so diffs are
+readable), and each Claude Code session imports what arrived with a `git pull`. On another machine, install
+Anchor and pull: that's all. Where both sides changed an item, the later edit wins; nothing is deleted.
+`anchor sync` does the same by hand. Code anchors are not shared: each machine anchors items to its own
+checkout, so staleness is always judged against the code you have.
+
+> **Privacy:** a committed `knowledge.jsonl` is visible to everyone who can read the repository. In a public
+> repo, your memories become public. Leave sharing off there, or review the file before committing.
+> The database and `events.jsonl` (which holds prompt text) are never shared.
 
 ### Settings (environment variables)
 
@@ -133,8 +162,8 @@ statistically significant yet (Fisher p > 0.1). The repository is synthetic; rea
 
 - No embedding search: recall is lexical plus code structure, so a memory worded very differently from
   the task can be missed.
-- File-level memories go stale on any edit to that file, which can be noisy in busy files.
-- No team or multi-machine sync.
+- Sync is file-based through git (last edit wins per item); there is no server or live sync.
+- `import` guesses kinds from wording (must/never → rule, "we decided" → decision); check with `--dry-run`.
 - Guardrail checks are regex only.
 
 ## Development

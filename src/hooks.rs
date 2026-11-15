@@ -72,6 +72,9 @@ pub fn handle(db: &Db, event: &str, input: &Value) -> Result<Value> {
     let tool = input.get("tool_name").and_then(|v| v.as_str()).unwrap_or("");
     let out = match event {
         "SessionStart" => {
+            // knowledge shared through git (.anchor/knowledge.jsonl) that changed since last time, e.g. a pull;
+            // imported before indexing so the index anchors it to this checkout
+            let synced = crate::sync::autoload(db);
             // first time in a repo: index in the background so session start never stalls
             let rep = if db.meta_get("last_index")?.is_none() {
                 if let Ok(exe) = std::env::current_exe() {
@@ -113,7 +116,7 @@ pub fn handle(db: &Db, event: &str, input: &Value) -> Result<Value> {
                     "\nAnchor status: {stale} item(s) stale since code changed, {quarantined} external item(s) awaiting user approval."
                 ));
             }
-            log_event(db, event, input, json!({"indexed": rep.files_indexed, "newly_stale": rep.newly_stale.len()}));
+            log_event(db, event, input, json!({"indexed": rep.files_indexed, "newly_stale": rep.newly_stale.len(), "synced": synced}));
             ctx("SessionStart", s)
         }
         "UserPromptSubmit" => {

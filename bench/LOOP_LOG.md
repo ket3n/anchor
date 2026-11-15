@@ -142,3 +142,12 @@ what changed. Results live in bench/results/.
   comment edits) still passes. Replaying the COR-05 queue.py edits on the 400-note base: 17 stale flags -> 0
   (none of those notes names the changed code). Built at 17:24, after iteration 5's Anchor runs (last 17:07),
   so iteration 5 used the previous binary throughout.
+- v0.2.0 features (tests added, all green):
+  - `anchor sync [--enable]`: knowledge shared through git as .anchor/knowledge.jsonl (one item per line, sorted;
+    ids are content hashes so they match across machines). Auto-written on remember/review when enabled,
+    imported at SessionStart when it changed (e.g. after a pull); later updated_at wins per item; code anchors
+    are recomputed per checkout. Two-machine integration test (decision travels A->B, correction travels B->A).
+  - `anchor import [FILE...] [--dry-run]`: CLAUDE.md / AGENTS.md / docs -> items (bullets and short paragraphs;
+    code blocks and tables skipped), kind guessed from wording, linked to mentioned files, symbols and constants
+    (a constant resolves to the single file containing it). Origin user. Idempotent. Integration test added.
+  - The benchmark binary (target/release/anchor) is now v0.2.0: iterations from 6 on run with it.

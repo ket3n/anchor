@@ -568,6 +568,19 @@ fn resolve_links(db: &Db) -> Result<()> {
 /// a softer flag one hop (callers of changed code, knowledge that depends_on stale knowledge).
 pub fn propagate(db: &Db, report: &mut IndexReport) -> Result<()> {
     // 1. direct: about-edge anchor hash differs from current target hash, or target is gone
+    // links imported before their code was indexed here: anchor them now that the target exists
+    let unanchored: Vec<(String, String, String, String)> = {
+        let mut st = db.conn.prepare(
+            "SELECT k.id, k.content, k.kind, e.dst FROM edges e
+             JOIN nodes k ON k.id = e.src JOIN nodes t ON t.id = e.dst
+             WHERE e.type='about' AND e.anchor_hash IS NULL AND k.origin != 'code'",
+        )?;
+        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?
+    };
+    for (id, c, kind, dst) in unanchored {
+        let v = crate::knowledge::anchor_value(db, &dst, &c, &kind)?;
+        db.conn.execute("UPDATE edges SET anchor_hash=?3 WHERE src=?1 AND dst=?2 AND type='about'", params![id, dst, v])?;
+    }
     // upgrade file anchors written before fingerprints while their file is still unchanged
     let legacy: Vec<(String, String, String, String)> = {
         let mut st = db.conn.prepare(

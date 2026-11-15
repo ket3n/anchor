@@ -4,10 +4,12 @@
 pub mod db;
 pub mod guard;
 pub mod hooks;
+pub mod importer;
 pub mod index;
 pub mod install;
 pub mod knowledge;
 pub mod mcp;
 pub mod recall;
 pub mod report;
+pub mod sync;
 pub mod text;

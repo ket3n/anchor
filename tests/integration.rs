@@ -152,3 +152,81 @@ fn report_counts_hook_activity() {
     let text = Command::new(EXE).args(["--root", d.path().to_str().unwrap(), "report"]).output().unwrap();
     assert!(String::from_utf8_lossy(&text.stdout).contains("not proof it helped"));
 }
+
+#[test]
+fn knowledge_travels_between_machines_through_git() {
+    let a = tempfile::tempdir().unwrap();
+    let b = tempfile::tempdir().unwrap();
+    for d in [a.path(), b.path()] {
+        std::fs::create_dir_all(d.join(".git")).unwrap();
+        std::fs::write(d.join("feeds.py"), "def fetch_all(urls):\n    return [u for u in urls]\n").unwrap();
+    }
+    let cli = |root: &std::path::Path, args: &[&str]| {
+        let o = Command::new(EXE).arg("--root").arg(root).args(args).output().unwrap();
+        assert!(o.status.success(), "{args:?}: {}", String::from_utf8_lossy(&o.stderr));
+        String::from_utf8_lossy(&o.stdout).to_string()
+    };
+    cli(a.path(), &["index"]);
+    let out = cli(a.path(), &["remember", "fetch_all must stay sequential: the gateway bans parallel clients",
+                              "--kind", "decision", "--about", "feeds.py", "--origin", "user"]);
+    let old_id = serde_json::from_str::<serde_json::Value>(&out).unwrap()["id"].as_str().unwrap().to_string();
+    cli(a.path(), &["sync", "--enable"]);
+    let gi = std::fs::read_to_string(a.path().join(".anchor/.gitignore")).unwrap();
+    assert!(gi.contains("!knowledge.jsonl"), "git must be allowed to track the shared file");
+    let shared = std::fs::read_to_string(a.path().join(".anchor/knowledge.jsonl")).unwrap();
+    assert!(shared.contains(&old_id) && shared.contains("\"about\":[\"file:feeds.py\"]"), "{shared}");
+
+    // machine B: the file arrives with a pull; the next session imports it and anchors it to B's code
+    std::fs::create_dir_all(b.path().join(".anchor")).unwrap();
+    std::fs::write(b.path().join(".anchor/knowledge.jsonl"), &shared).unwrap();
+    std::fs::write(b.path().join(".anchor/.gitignore"), &gi).unwrap();
+    hook("SessionStart", b.path(), json!({"session_id": "b1", "cwd": b.path(), "hook_event_name": "SessionStart"}));
+    cli(b.path(), &["index"]);
+    let listed = cli(b.path(), &["list"]);
+    assert!(listed.contains("must stay sequential"), "B must have A's decision: {listed}");
+    let rec = cli(b.path(), &["recall", "make fetch_all faster", "--file", "feeds.py"]);
+    assert!(rec.contains(&old_id), "B recalls it for the file: {rec}");
+    assert!(!cli(b.path(), &["health"]).contains("\"stale\": 1"), "imported item anchored fresh on B");
+
+    // B corrects it; the file is rewritten automatically; A pulls and sees the correction
+    std::thread::sleep(std::time::Duration::from_millis(1100)); // updated_at has 1 s resolution
+    cli(b.path(), &["remember", "fetch_all may use at most 2 parallel connections (gateway limit raised)",
+                    "--kind", "decision", "--about", "feeds.py", "--origin", "user", "--supersedes", &old_id]);
+    let shared_b = std::fs::read_to_string(b.path().join(".anchor/knowledge.jsonl")).unwrap();
+    assert!(shared_b.contains("at most 2 parallel"), "B's write must update the shared file");
+    std::fs::write(a.path().join(".anchor/knowledge.jsonl"), &shared_b).unwrap();
+    let synced = cli(a.path(), &["sync"]);
+    assert!(synced.contains("1 added") && synced.contains("1 updated"), "{synced}");
+    let listed_a = cli(a.path(), &["list"]);
+    assert!(listed_a.contains("at most 2 parallel") && !listed_a.contains("must stay sequential"),
+            "A shows only the correction: {listed_a}");
+}
+
+#[test]
+fn import_claude_md_into_linked_items() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join(".git")).unwrap();
+    std::fs::create_dir_all(d.path().join("src")).unwrap();
+    std::fs::write(d.path().join("src/feeds.py"), "def fetch_all(urls):\n    return list(urls)\n").unwrap();
+    std::fs::write(d.path().join("src/exporter.py"), "BATCH_SIZE = 500\n\ndef export(xs):\n    return xs\n").unwrap();
+    std::fs::write(d.path().join("CLAUDE.md"), "# Project\n\n## Rules\n\
+        - Never parallelize `fetch_all` in src/feeds.py: the gateway bans parallel clients.\n\
+        - We decided to keep BATCH_SIZE at 500 because the ledger rejects bigger payloads.\n\
+        - Prefer small pure functions over classes.\n\n```sh\nmake test\n```\n\n| a | b |\n| - | - |\n").unwrap();
+    let run = |args: &[&str]| {
+        let o = Command::new(EXE).arg("--root").arg(d.path()).args(args).current_dir(d.path()).output().unwrap();
+        assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+        String::from_utf8_lossy(&o.stdout).to_string()
+    };
+    let dry = run(&["import", "--dry-run"]);
+    assert!(dry.contains("would import 3 items (2 linked to code)"), "{dry}");
+    assert!(run(&["list"]).trim().is_empty(), "dry run stores nothing");
+    let out = run(&["import"]);
+    assert!(out.contains("[rule] (fetch_all, src/feeds.py)"), "{out}");
+    assert!(out.contains("[decision] (src/exporter.py)"), "constant resolved to its file: {out}");
+    assert!(out.contains("[preference]"), "{out}");
+    run(&["import"]); // idempotent: same text, same id
+    assert_eq!(run(&["list"]).lines().count(), 3, "re-import must not duplicate");
+    let rec = run(&["recall", "make fetch_all faster", "--file", "src/feeds.py"]);
+    assert!(rec.contains("Never parallelize"), "{rec}");
+}

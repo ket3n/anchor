@@ -75,6 +75,19 @@ enum Cmd {
     },
     /// Counts: stale, disputed, quarantined, ...
     Health,
+    /// Import rules and decisions from existing files (CLAUDE.md, AGENTS.md, docs)
+    Import {
+        files: Vec<PathBuf>,
+        /// Show what would be stored without storing it
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Share knowledge through git: .anchor/knowledge.jsonl (import changes, then write it)
+    Sync {
+        /// Turn sharing on: create knowledge.jsonl and let git track it
+        #[arg(long)]
+        enable: bool,
+    },
     /// What Anchor did in this project: context shown, warnings, stale flags, corrections
     Report {
         /// Only the last N days
@@ -198,6 +211,45 @@ fn run() -> Result<()> {
         Cmd::Health => {
             let db = Db::open(&root)?;
             println!("{}", serde_json::to_string_pretty(&knowledge::health(&db)?)?);
+            Ok(())
+        }
+        Cmd::Import { files, dry_run } => {
+            let db = Db::open(&root)?;
+            if db.meta_get("last_index")?.is_none() {
+                index::index_all(&db, false)?; // links need the code index
+            }
+            let files = if files.is_empty() {
+                ["CLAUDE.md", "AGENTS.md", ".claude/CLAUDE.md"].iter().map(|f| root.join(f)).filter(|p| p.exists()).collect()
+            } else {
+                files
+            };
+            if files.is_empty() {
+                anyhow::bail!("no files given and no CLAUDE.md / AGENTS.md found");
+            }
+            let r = anchor::importer::import_files(&db, &files, dry_run)?;
+            for i in r["detail"].as_array().into_iter().flatten() {
+                let about: Vec<&str> = i["about"].as_array().into_iter().flatten().filter_map(|a| a.as_str()).collect();
+                println!("[{}]{} {}", i["kind"].as_str().unwrap_or(""),
+                         if about.is_empty() { String::new() } else { format!(" ({})", about.join(", ")) },
+                         anchor::knowledge::short(i["text"].as_str().unwrap_or(""), 120));
+            }
+            println!("\n{} {} items ({} linked to code): {}", if dry_run { "would import" } else { "imported" },
+                     r["items"], r["linked_to_code"], r["by_kind"]);
+            Ok(())
+        }
+        Cmd::Sync { enable } => {
+            let db = Db::open(&root)?;
+            if enable {
+                let n = anchor::sync::enable(&db)?;
+                println!("sharing on: {} items in .anchor/{} (commit it; .anchor/.gitignore now lets git track it)", n, anchor::sync::FILE);
+            } else if anchor::sync::enabled(&db) {
+                let r = anchor::sync::import(&db)?;
+                index::index_all(&db, false)?;
+                let n = anchor::sync::export(&db)?;
+                println!("imported: {} added, {} updated, {} unchanged; wrote {} items", r.added, r.updated, r.unchanged, n);
+            } else {
+                println!("sharing is off; run `anchor sync --enable` to create .anchor/{}", anchor::sync::FILE);
+            }
             Ok(())
         }
         Cmd::Report { days, json } => {
