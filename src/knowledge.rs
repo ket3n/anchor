@@ -246,7 +246,7 @@ fn remember_inner(db: &Db, inp: RememberInput) -> Result<Value> {
         .optional()?
         .unwrap_or(false);
 
-    let tx = db.conn.unchecked_transaction()?;
+    let tx = rusqlite::Transaction::new_unchecked(&db.conn, rusqlite::TransactionBehavior::Immediate)?;
     if !exists {
         let sh = text::simhash(&content) as i64;
         db.conn.execute(

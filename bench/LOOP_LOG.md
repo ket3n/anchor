@@ -151,3 +151,7 @@ what changed. Results live in bench/results/.
     code blocks and tables skipped), kind guessed from wording, linked to mentioned files, symbols and constants
     (a constant resolves to the single file containing it). Origin user. Idempotent. Integration test added.
   - The benchmark binary (target/release/anchor) is now v0.2.0: iterations from 6 on run with it.
+- v0.2.1: fix "database is locked" when two Anchor processes write at once (e.g. the background first index
+  started by SessionStart and a CLI command): write transactions are now BEGIN IMMEDIATE, so they wait on the
+  busy timeout instead of failing. Found by the two-machine test failing in the pre-push hook. Tag v0.2.0 had
+  been pushed before the fix (its commit was not on main); it is left as is, and v0.2.1 is the release to use.

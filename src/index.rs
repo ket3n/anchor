@@ -292,7 +292,7 @@ pub fn index_all(db: &Db, force: bool) -> Result<IndexReport> {
             !(n == ".anchor" || n == ".git" || n == "target" || n == "node_modules" || n == ".venv")
         })
         .build();
-    let tx = db.conn.unchecked_transaction()?;
+    let tx = rusqlite::Transaction::new_unchecked(&db.conn, rusqlite::TransactionBehavior::Immediate)?;
     let mut present = BTreeSet::new();
     for entry in walker.flatten() {
         if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
@@ -327,7 +327,7 @@ pub fn index_all(db: &Db, force: bool) -> Result<IndexReport> {
 pub fn index_one(db: &Db, abs: &Path) -> Result<IndexReport> {
     let mut report = IndexReport::default();
     let r = rel(&db.root, abs);
-    let tx = db.conn.unchecked_transaction()?;
+    let tx = rusqlite::Transaction::new_unchecked(&db.conn, rusqlite::TransactionBehavior::Immediate)?;
     if abs.exists() {
         if index_file_inner(db, abs, &r, false, &mut report)? {
             report.files_indexed += 1;

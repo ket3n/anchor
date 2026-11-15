@@ -177,7 +177,7 @@ impl Db {
         }
         let fresh: i64 = self.conn.query_row("SELECT COUNT(*) FROM nodes", [], |r| r.get(0))?;
         if fresh > 0 {
-            let tx = self.conn.unchecked_transaction()?;
+            let tx = rusqlite::Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Immediate)?;
             self.conn.execute_batch(
                 "DROP TABLE IF EXISTS fts_words; DROP TABLE IF EXISTS fts_tri; DELETE FROM fts_map;",
             )?;
