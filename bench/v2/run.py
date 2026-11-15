@@ -25,7 +25,45 @@ import gen_fixture, knowledge  # noqa: E402
 ANCHOR = os.path.abspath(os.path.join(HERE, "..", "..", "target", "release", "anchor"))
 MODEL = "sonnet"
 TOOLS = "Read,Edit,Write,MultiEdit,Grep,Glob,Bash(python3 -m unittest),Bash(python3 -m unittest:*)"
-EXTRA_TOOLS = {"C1": ",mcp__memory", "C2": ",mcp__basic-memory", "E": ",mcp__anchor"}
+EXTRA_TOOLS = {"C1": ",mcp__memory", "C2": ",mcp__basic-memory", "C3": ",mcp__mcp-search", "E": ",mcp__anchor"}
+# C3 = claude-mem (github.com/thedotmack/claude-mem), loaded per session with --plugin-dir; worker, data and port per run.
+CM_PLUGIN = os.environ.get("CM_PLUGIN", "")
+CM_BUN = os.environ.get("CM_BUN", "")
+
+
+def cm_env(d):
+    e = dict(os.environ, CLAUDE_MEM_DATA_DIR=os.path.join(d, ".cmdata"), CLAUDE_MEM_WORKER_PORT=open(os.path.join(d, ".cm_port")).read().strip(),
+             CLAUDE_MEM_AUTO_UPDATE="false", CLAUDE_MEM_TELEMETRY="0", DO_NOT_TRACK="1", MISE_BUN_VERSION="1.4.4",
+             CLAUDE_PLUGIN_ROOT=CM_PLUGIN)
+    e["PATH"] = CM_BUN + ":" + e["PATH"]
+    return e
+
+
+def cm_stop(d):
+    """Stop this run's claude-mem worker and its chroma process (pids from its supervisor file)."""
+    pids = []
+    for f, get in (("supervisor.json", lambda j: [p.get("pid") for p in j.get("processes", {}).values()]),
+                   ("worker.pid", lambda j: [j.get("pid")])):
+        try:
+            pids += get(json.load(open(os.path.join(d, ".cmdata", f))))
+        except Exception:
+            pass
+    for pid in {p for p in pids if p}:
+        try:
+            os.kill(int(pid), 15)
+        except Exception:
+            pass
+
+
+def cm_observer_tokens(d):
+    tot = {}
+    logs = os.path.join(d, ".cmdata", "logs")
+    for f in (os.listdir(logs) if os.path.isdir(logs) else []):
+        for line in open(os.path.join(logs, f), errors="replace"):
+            if "Observer turn usage" in line:
+                for k, v in re.findall(r"(inputTokens|cacheCreationInputTokens|cacheReadInputTokens|outputTokens)=(\d+)", line):
+                    tot[k] = tot.get(k, 0) + int(v)
+    return tot
 
 PROMPTS = {
     "dec03": "The nightly partner sync takes hours now that we have about 500 partner feeds. Make it faster.",
@@ -131,6 +169,29 @@ def setup(d, arm, case, run=0):
             "SessionStart": [{"hooks": [{"type": "command", "command": f"{pre} session-start", "timeout": 60}]}],
             "PreCompact": [{"hooks": [{"type": "command", "command": f"{pre} pre-compact", "timeout": 60}]}],
             "Stop": [{"hooks": [{"type": "command", "command": f"{pre} stop", "timeout": 60}]}]}}, indent=2))
+    if arm == "C3":
+        import zlib, urllib.request
+        os.makedirs(os.path.join(d, ".cmdata"), exist_ok=True)
+        write(os.path.join(d, ".cmdata", "settings.json"), json.dumps(
+            {"CLAUDE_MEM_AUTO_UPDATE": "false", "CLAUDE_MEM_TELEMETRY": "0", "CLAUDE_MEM_CLOUD_SYNC_WS": "false"}))
+        port = 38200 + zlib.crc32(d.encode()) % 700
+        write(os.path.join(d, ".cm_port"), str(port))
+        env = cm_env(d)
+        sh(["claude-mem", "start"], d, env=env, timeout=120)
+        for _ in range(60):
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=2)
+                break
+            except Exception:
+                time.sleep(1)
+        for about, kind, text in notes:
+            req = urllib.request.Request(f"http://127.0.0.1:{port}/api/memory/save", method="POST",
+                                         data=json.dumps({"text": text, "title": f"{kind}: {about}", "cwd": d}).encode(),
+                                         headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=30).read()
+        m = json.load(open(os.path.join(CM_PLUGIN, ".mcp.json")))["mcpServers"]["mcp-search"]
+        m["env"] = {k: env[k] for k in ("CLAUDE_MEM_DATA_DIR", "CLAUDE_MEM_WORKER_PORT", "CLAUDE_MEM_TELEMETRY", "DO_NOT_TRACK", "CLAUDE_PLUGIN_ROOT")}
+        mcp["mcpServers"]["mcp-search"] = m
     if arm == "E":
         sh([ANCHOR, "--root", d, "install", "--project", d], d)
         mcp = json.load(open(os.path.join(d, ".mcp.json")))
@@ -151,12 +212,13 @@ def setup(d, arm, case, run=0):
 
 
 def claude(d, mcp, prompt, arm):
-    env = dict(os.environ)
+    env = cm_env(d) if arm == "C3" else dict(os.environ)
     env.pop("CLAUDE_CODE_DISABLE_AUTO_MEMORY", None)
     t = time.time()
+    plug = ["--plugin-dir", CM_PLUGIN] if arm == "C3" else []
     p = sh(["claude", "-p", prompt, "--model", MODEL, "--setting-sources", "project,local", "--strict-mcp-config",
             "--mcp-config", mcp, "--permission-mode", "default", "--allowedTools", TOOLS + EXTRA_TOOLS.get(arm, ""),
-            "--no-session-persistence", "--output-format", "json"], d, env=env)
+            "--no-session-persistence", "--output-format", "json"] + plug, d, env=env)
     try:
         j = json.loads(p.stdout)
     except Exception:
@@ -229,6 +291,14 @@ def run_case(case, arm, i, out):
         r.update(claude(d, mcp, PROMPTS["cor03_s2"], arm))
     else:
         r.update(claude(d, mcp, PROMPTS[case], arm))
+    if arm == "C3":
+        time.sleep(45)  # let the background observer finish compressing the last session
+        t = r["c3_observer_tokens"] = cm_observer_tokens(d)
+        # claude-mem's background observer runs on Haiku (CLAUDE_MEM_MODEL=haiku): $0.10 in, $0.50 out per MTok;
+        # cache write 1.25x and cache read 0.1x of input. Added to the arm's cost so arms stay comparable.
+        r["c3_observer_cost_usd"] = (t.get("inputTokens", 0) * 0.10 + t.get("cacheCreationInputTokens", 0) * 0.125
+                                     + t.get("cacheReadInputTokens", 0) * 0.01 + t.get("outputTokens", 0) * 0.50) / 1e6
+        cm_stop(d)
     r.update(grade(case, d, r.get("result") or ""))
     return r
 

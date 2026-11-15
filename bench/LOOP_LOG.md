@@ -89,3 +89,25 @@ what changed. Results live in bench/results/.
 - 10:37 iter4 paused by quota guard at 10/20 (session 100% at 08:45, resets 11:29; week 9%). Resume with the same iter4 command + detached guard.
 - 11:53 iter4 RESUMED at 10/20 (session reset to 5%). Partial cor05: E 2/2, M 1/2, B 1/2, C1 2/2, C2 0/2.
 - 12:0x Claude Doc report updated (rev 17): new section 'Comparison benchmark results (v2)' with iter1-4 success, E vs M cost, failure analysis, Anchor changes and benchmark corrections.
+- Iteration 4 COMPLETE (20/20). Results: bench/results/2026-11-15-iter4 (COR-05, 400 notes, 4 sessions).
+  Success: E 4/4, C1 4/4, B 2/4, C2 2/4, M 1/4 (E vs M Fisher p=0.14). Cost: E $0.209 (lowest), C2 $0.232,
+  C1 $0.269, M $0.447, B $0.485. E also used the fewest input tokens (63k vs M 120k).
+  Every failure wrote log.info (the superseded rule). Checked by hand, all genuine:
+  - M runs 0 and 2: the rule file was rewritten to log.debug, but the MEMORY.md index line still said log.info;
+    M run 3 never updated it.
+  - B runs 1 and 3: CLAUDE.md still held the log.info line.
+  - C2 runs 0 and 1: neither rule was in basic-memory's notes; the agent used the old rule from built-in memory.
+  First case where memory tools clearly differ. No Anchor change needed from this iteration.
+- NEW arm C3 = claude-mem 15.18.4 (github.com/thedotmack/claude-mem, Claude Code plugin; user approved adding it).
+  Isolation: loaded per session via --plugin-dir from scratchpad/ext; its own data dir (.cmdata), worker port and
+  settings per run; telemetry off (DO_NOT_TRACK=1, CLAUDE_MEM_TELEMETRY=0); auto-update and cloud sync off.
+  Its search MCP server is added to the run's MCP config, because --strict-mcp-config drops plugin MCP servers.
+  Notes seeded through its own POST /api/memory/save (the API its save_memory tool uses). Its background
+  observer runs on Haiku; those tokens are logged and priced into the arm's cost (c3_observer_cost_usd).
+  Side effects outside the scratchpad: bun 1.4.4 installed via mise (global mise config unchanged; hooks get
+  MISE_BUN_VERSION), and the claude-mem launcher binary at ~/.local/bin/claude-mem (hard-coded location),
+  to be removed when the C3 runs are done. The early smoke runs had telemetry on.
+  Smoke test (built-in memory off): claude-mem captured the rule, but stored it as "a CLAUDE.md rule exists",
+  so session 2 looked for a CLAUDE.md, found none, and did not apply the rule.
+- Iteration 5 STARTED: arms C3,E,M × cases dec04,cor05,stale04,neu01 × 4 (E and M re-run alongside so the
+  comparison is from the same time). Out: scratchpad/iter5.
