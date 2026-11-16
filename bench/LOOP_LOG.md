@@ -320,3 +320,4 @@ what changed. Results live in bench/results/.
   tokens than the tool calls it saves. Reverted (not committed); Anchor stays at v0.3.4.
   Remaining cost gap vs Mem0 on ORCH cases (~25-30%) is mostly Claude's own orchestration_log calls; next idea to
   test: a compact briefing (decisions + last user messages only) for follow-up sessions instead of the full one.
+- Housekeeping: /tmp (tmpfs) was filled by 12G of benchmark run dirs, causing a 'disk I/O error' in an engine test at pre-push. Deleted analysed run dirs (results.jsonl kept; summaries are in bench/results), removed the iter7 worktree: scratchpad 1.3G, /tmp 14G free. Delete run dirs after each analysed iteration from now on.
