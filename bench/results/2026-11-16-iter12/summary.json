@@ -1,0 +1,77 @@
+[
+  {
+    "agent": "claude",
+    "case": "orch03",
+    "arm": "M",
+    "k": 0,
+    "n": 4,
+    "rate": 0.0,
+    "ci": [
+      0.0,
+      0.48990002040399916
+    ],
+    "captured": null,
+    "input_tokens": 20120.5,
+    "s1_input_tokens": 150606.5,
+    "cost_usd": 0.0326663,
+    "s1_cost_usd": 0.27230452499999996,
+    "tests_pass": 4,
+    "p_vs_anchor": 0.02857142857142857
+  },
+  {
+    "agent": "claude",
+    "case": "orch03",
+    "arm": "A0",
+    "k": 0,
+    "n": 4,
+    "rate": 0.0,
+    "ci": [
+      0.0,
+      0.48990002040399916
+    ],
+    "captured": null,
+    "input_tokens": 15867.5,
+    "s1_input_tokens": 166024.75,
+    "cost_usd": 0.0184109,
+    "s1_cost_usd": 0.19571015,
+    "tests_pass": 4,
+    "p_vs_anchor": 0.02857142857142857
+  },
+  {
+    "agent": "claude",
+    "case": "orch03",
+    "arm": "E",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 18419.0,
+    "s1_input_tokens": 278504.5,
+    "cost_usd": 0.0267453,
+    "s1_cost_usd": 0.285272825,
+    "tests_pass": 4
+  },
+  {
+    "agent": "claude",
+    "case": "orch03",
+    "arm": "C4",
+    "k": 1,
+    "n": 4,
+    "rate": 0.25,
+    "ci": [
+      0.045586062644636216,
+      0.6993639475573634
+    ],
+    "captured": null,
+    "input_tokens": 17186.25,
+    "s1_input_tokens": 134719.25,
+    "cost_usd": 0.0221362,
+    "s1_cost_usd": 0.201229,
+    "tests_pass": 4,
+    "p_vs_anchor": 0.14285714285714285
+  }
+]

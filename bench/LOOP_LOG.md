@@ -295,3 +295,12 @@ what changed. Results live in bench/results/.
 - Iteration 12 STARTED: orch03 × A0,M,E × 4 (ANCHOR_BIN=$S/bin/anchor-iter12 = v0.3.4, scratchpad/iter12) and
   × C4 × 4 (scratchpad/iter12-c4).
 - 10:41 quota guard stopped iter12 at 90% (session jumped 71%->90%). Partial ORCH-03: E 1/1 (asked for full test suite + summary), M 0/1, A0 0/2, C4 0/0. Unfinished runs cleaned (Mem0 memories deleted). Resume after the 13:00 reset with the iter12 commands (ANCHOR_BIN=$S/bin/anchor-iter12).
+- 14:37 quota reset (session 12%, week 65%). Resumed iter12 (A0,M,E and C4) with guard.
+- Iteration 12 COMPLETE (ORCH-03, pattern learning). Results: bench/results/2026-11-16-iter12.
+  E 4/4 ($0.312), C4 1/4 ($0.223), M 0/4 ($0.305), A0 0/4 ($0.214). E vs M/A0 p=0.029, E vs C4 p=0.14.
+  E applied the unstated habit every time ("not accepting yet; run the full test suite and paste the summary"),
+  from the closest episode's recorded user messages injected at the new session's prompt. Mem0 mostly surfaced
+  unrelated stored notes (DEFAULT_LIMIT, lowercased keys); one C4 miss (run 0) asked for "unit and e2e test results"
+  and a change summary: partial, failed by the strict grader (same rule for every arm). M and A0 just accepted "done".
+- Iteration 13 STARTED: more power for E vs C4 on ORCH-03: runs 4-7 for E and C4 in the same out dirs
+  (`--runs 8 --arms E` in iter12 with ANCHOR_BIN=$S/bin/anchor-iter12; `--runs 8 --arms C4` in iter12-c4).
