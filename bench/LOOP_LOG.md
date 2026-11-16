@@ -336,3 +336,4 @@ what changed. Results live in bench/results/.
   rest would leave the user without Claude for 4+ days. Ticks until then only check quota and log (no runs, no
   heavy work). Resume plan after the reset: compact follow-up briefing (decisions + last user messages) measured on
   ORCH-03/02 E only; then ab.py on a real repo if the user names one.
+- Recurring 2-hourly tick (6411775d) cancelled to save weekly quota; one-shot restart scheduled Nov 22 02:47 (35f60362, session-only) to recreate it after the weekly reset.
