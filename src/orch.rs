@@ -400,7 +400,7 @@ pub fn is_tool(name: &str) -> bool {
 pub fn tools() -> Vec<Value> {
     vec![
         json!({"name": "orchestration_start",
-            "description": "Become the orchestrator of an orchestration episode, using the user's orchestration memory: past episodes, decisions and the user's patterns for managing sessions. Call it when the user asks you to orchestrate (e.g. /orchestrate) or agrees after you ask; never switch to orchestrating on your own. If similar past episodes exist and neither `resume` nor `new` is given, they are listed and nothing is created: ask the user, then call again.",
+            "description": "Become the orchestrator of an orchestration episode, using the user's orchestration memory: past episodes, decisions and the user's patterns for managing sessions. Call it when the user asks you, in any words, to coordinate, manage or orchestrate other sessions or workers for them (\"you are coordinating these sessions\", \"keep track of the workers\", \"pick up coordination\", /orchestrate), or agrees after you ask. That request is the permission; do not start it when nobody asked you to coordinate anything. Then log decisions, delegations and worker reports with `orchestration_log` as they happen. If similar past episodes exist and neither `resume` nor `new` is given, they are listed and nothing is created: ask the user, then call again.",
             "inputSchema": {"type": "object", "properties": {
                 "goal": {"type": "string", "description": "What this orchestration is for, in one or two sentences."},
                 "sessions": {"type": "array", "items": {"type": "string"}, "description": "Ids of the sessions you will manage, if known."},
@@ -451,9 +451,11 @@ pub fn call(name: &str, args: &Value) -> Result<String> {
                 let sim = o.similar(&goal, &sessions, &repos)?;
                 if !sim.is_empty() && !args.get("new").and_then(|v| v.as_bool()).unwrap_or(false) {
                     let mut t = String::from("Similar past orchestrations exist. Ask the user whether to resume one (call again with `resume`) or start new (`new: true`):\n");
-                    for (id, score, g, status) in sim {
-                        t.push_str(&format!("- {id} ({status}, match {score:.2}): {}\n", short(&g, 120)));
+                    for (id, score, g, status) in &sim {
+                        t.push_str(&format!("- {id} ({status}, match {score:.2}): {}\n", short(g, 120)));
                     }
+                    // the state of the closest match, so a session picking up coordination has the facts now
+                    t.push_str(&format!("\nState of the closest match ({}):\n{}", sim[0].0, o.briefing(&sim[0].0, "closest past orchestration")?));
                     return Ok(t);
                 }
                 o.create_episode(&goal)?
@@ -532,6 +534,14 @@ pub fn all_patterns(o: &Orch) -> Result<Vec<PatternRow>> {
 
 const MANAGE_TOOLS: &[&str] = &["SendMessage", "ListAgents"];
 
+/// Does the user's prompt ask for coordination of sessions/workers? Word-based, no model.
+pub fn coordination_intent(p: &str) -> bool {
+    let l = p.to_lowercase();
+    let verb = ["coordinat", "orchestrat", "manage", "managing", "keep track of", "pick up", "picking up", "take over", "oversee"];
+    let obj = ["session", "worker", "agents", "orchestrat", "coordination"];
+    verb.iter().any(|v| l.contains(v)) && obj.iter().any(|o| l.contains(o))
+}
+
 /// Orchestration side of a hook event. Returns extra context to add (plain text), or None.
 /// Never creates the store: until the user first orchestrates, this does nothing but the one-time nudge.
 pub fn hook(event: &str, input: &Value, repo: Option<&std::path::Path>, project_flag_once: &mut dyn FnMut() -> bool) -> Result<Option<String>> {
@@ -569,6 +579,20 @@ pub fn hook(event: &str, input: &Value, repo: Option<&std::path::Path>, project_
             return Ok(Some("Anchor: this session is now coordinating other sessions. If you are managing them for the user, ask the user once whether to use their orchestration memory (the `orchestration_start` tool, or /orchestrate). Do not switch to orchestrating on your own.".into()));
         }
         return Ok(None);
+    }
+
+    // the user asks, in their own words, for coordination of sessions: point to orchestration memory once
+    if event == "UserPromptSubmit" && !is_orch
+        && let Some(p) = input.get("prompt").and_then(|v| v.as_str())
+        && coordination_intent(p)
+    {
+        let first = match &store {
+            Some(o) => o.flag_once(session, "intent")?,
+            None => project_flag_once(),
+        };
+        if first {
+            return Ok(Some("Anchor: this request is about coordinating other sessions or workers. Use the orchestration memory: call `orchestration_start` with the goal (it finds or resumes past orchestrations), then log decisions, delegations and worker reports with `orchestration_log`.".into()));
+        }
     }
 
     let Some(o) = store else { return Ok(None) };

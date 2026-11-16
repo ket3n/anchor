@@ -234,3 +234,22 @@ fn commands_are_installed_without_overwriting_the_users_own() {
     assert!(!dir.join("orchestrate.md").exists());
     assert!(dir.join("patterns.md").exists(), "the user's file is never removed");
 }
+
+#[test]
+fn coordination_requests_in_plain_words_point_to_orchestration_memory() {
+    let e = env();
+    let hint = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "s1", json!({"prompt": "You are coordinating three worker sessions for me: api, web and docs."})));
+    assert!(hint.contains("orchestration_start"), "{hint}");
+    let again = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "s1", json!({"prompt": "keep track of the workers please"})));
+    assert!(!again.contains("orchestration_start"), "only once per session: {again}");
+    let plain = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "s2", json!({"prompt": "Fix the flaky login test in api"})));
+    assert!(!plain.contains("orchestration_start"), "ordinary work gets no hint: {plain}");
+    assert!(anchor::orch::coordination_intent("You're picking up coordination of the OAuth migration workers"));
+    assert!(!anchor::orch::coordination_intent("manage the database connection pool"));
+
+    // a session picking up coordination sees the closest past episode's state before choosing to resume
+    let a = episode_id(&start(&e, &e.plain, "orc1", json!({"goal": "OAuth migration across api web docs workers"})));
+    mcp(&e, &e.plain, "orchestration_log", json!({"kind": "decision", "text": "docs may push the changelog straight to main"}));
+    let (offer, _) = mcp(&e, &e.plain, "orchestration_start", json!({"goal": "pick up coordination of the OAuth migration workers"}));
+    assert!(offer.contains(&a) && offer.contains("docs may push the changelog straight to main"), "{offer}");
+}

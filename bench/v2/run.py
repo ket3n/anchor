@@ -136,6 +136,15 @@ PROMPTS = {
     "c02_read": "Go through every module in fleet/parsing/ and fleet/notify/ and add a one-line docstring to each public function that lacks one.",
     "c02_shard": ("Add a function shard_for(key, n) to fleet/storage/keys.py that returns a stable shard index from 0 to n-1 "
                   "using hashlib.blake2b of the key."),
+    "o1": ("You are coordinating three worker sessions for me on the OAuth migration: api, web and docs. You can't message "
+           "them; I relay. Decisions so far: api goes first; web must not start until api reports that the /token endpoint "
+           "is merged; the docs worker is allowed to push changelog updates straight to main, no PR needed, since it is "
+           "docs-only. Keep track of this and acknowledge briefly."),
+    "o2": "Relay from api: \"/token endpoint merged to main, tests green.\" Note it.",
+    "o3": "Unrelated question: summarize what fleet/billing/exporter.py does in two sentences.",
+    "o4": ("You're picking up coordination of the OAuth migration workers (api, web, docs) from an earlier session. Two "
+           "requests just came in. web: \"can I start now?\" docs: \"can I push the changelog straight to main?\" "
+           "Reply with exactly two lines: 'WEB: GO' or 'WEB: WAIT', and 'DOCS: ALLOW' or 'DOCS: DENY'."),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -275,7 +284,10 @@ def setup(d, arm, case, run=0):
 
 def claude(d, mcp, prompt, arm, sess=None, first=False):
     env = cm_env(d) if arm == "C3" else m0_env(d) if arm == "C4" else dict(os.environ)
+    env["ANCHOR_HOME"] = os.path.join(d, ".anchor-home")  # per-run orchestration store, never the user's
     env.pop("CLAUDE_CODE_DISABLE_AUTO_MEMORY", None)
+    if arm == "A0":
+        env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = "1"  # control: no memory of any kind
     t = time.time()
     plug = ["--plugin-dir", CM_PLUGIN] if arm == "C3" else ["--plugin-dir", M0_PLUGIN] if arm == "C4" else []
     p = sh(["claude", "-p", prompt, "--model", MODEL, "--setting-sources", "project,local", "--strict-mcp-config",
@@ -328,11 +340,22 @@ def grade_answer_stale(final):
     return cur and not old, f"current={cur} stale_asserted={old}"
 
 
+def grade_orch01(final):
+    web = re.findall(r"WEB:\s*(GO|WAIT)", final.upper())
+    docs = re.findall(r"DOCS:\s*(ALLOW|DENY)", final.upper())
+    ok = web[-1:] == ["GO"] and docs[-1:] == ["ALLOW"]
+    return ok, f"web={web[-1:]} docs={docs[-1:]}"
+
+
 def grade(case, d, final):
     if case == "dec04":
         case = "dec03"  # same task and check, larger knowledge base
     if case in ("compact01", "compact02"):
         case = "cor05"  # same final task and the same strict check (log.debug + "[fleet] " prefix, no log.info)
+    if case == "orch01":
+        ok, info = grade_orch01(final)
+        return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
+                "did_task": bool(final.strip()), "success": ok and bool(final.strip())}
     if case == "stale04":
         ok, info = grade_answer_stale(final)
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
@@ -357,7 +380,20 @@ def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
     mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
-    if case == "compact02":
+    if case == "orch01":
+        # an orchestration conversation (decisions, a worker report, unrelated work), then a NEW session takes over
+        import uuid
+        sess = str(uuid.uuid4())
+        r["sessions"] = []
+        for n, k in enumerate(("o1", "o2", "o3")):
+            sx = claude(d, mcp, PROMPTS[k], arm, sess=sess, first=(n == 0))
+            r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
+        if arm == "C4":
+            time.sleep(90)
+        r["s1"] = {"cost_usd": sum((x["cost_usd"] or 0) for x in r["sessions"]),
+                   "input_tokens": sum((x["input_tokens"] or 0) for x in r["sessions"])}
+        r.update(claude(d, mcp, PROMPTS["o4"], arm))  # fresh session: no resume
+    elif case == "compact02":
         # harder: correction stated once in passing, more work, two compactions before the task
         import uuid
         sess = str(uuid.uuid4())

@@ -228,3 +228,21 @@ what changed. Results live in bench/results/.
   and the C4 command with iter7-c4 (C4 does not use the Anchor binary). Clean unfinished C4 dirs (Mem0 cleanup) first.
 - Next benchmark: ORCH-01 (orchestrator delegates, is compacted or replaced, must continue correctly; and replay of
   user decisions to measure agreement with confirmed patterns).
+- 05:41 waiting for quota (session 94%, resets 08:00; week 53%).
+- 06:37 waiting for quota (session 95%, resets 08:00).
+- 08:02 quota reset (session 0%, week 53%). Cleaned unfinished iter7 runs; resumed iter7 (pinned binary) and iter7-c4; guard detached.
+- Iteration 7 COMPLETE (E,M,B 12/12; C4 4/4; every run compacted twice): COMPACT-02 saturated too. E $1.798,
+  C4 $1.744, B $1.913, M $2.254. Results: bench/results/2026-11-16-iter7. Conclusion: with Claude's built-in memory
+  on in every arm (it records the correction mid-session) plus Claude's own summary, compaction cases cannot
+  separate the tools. Stopping compaction benchmarks; the restore stays (cheap, verified by tests).
+- NEW case ORCH-01: orchestration conversation (decisions incl. an unguessable one: docs MAY push changelog
+  straight to main; a relayed api report; unrelated work), then a NEW session must answer WEB: GO|WAIT and
+  DOCS: ALLOW|DENY (correct GO + ALLOW). Graded by regex on the final answer (self-tested). Per-run ANCHOR_HOME.
+  NEW control arm A0 (built-in memory off) measures guessability.
+- Anchor fix found by the ORCH-01 smoke run (E failed: Claude never called orchestration_start, because the tool
+  said "only on explicit request" and "you are coordinating three worker sessions for me" did not count):
+  (1) orchestration_start's description now counts a request in any words as the permission; (2) a word-based
+  intent hint at UserPromptSubmit (once per session); (3) when similar episodes exist, orchestration_start also
+  returns the closest one's state. Test added (tests/orchestration.rs, 6 tests). Smoke re-run: E success, $0.19.
+- v0.3.1. Iteration 8 STARTED: orch01 × A0,M,B,E × 4 (scratchpad/iter8, ANCHOR_BIN=$S/bin/anchor-iter8) and
+  × C4 × 4 (scratchpad/iter8-c4).
