@@ -14,14 +14,14 @@
 <text x='698' y='113.0' fill='#57606a'>0/4</text>
 <text x='220' y='135.0' text-anchor='end' fill='#1f2328'>Mem0 (platform)</text>
 <line x1='230' x2='690' y1='131.0' y2='131.0' stroke='#eaeef2'/>
-<line x1='250.96958881653265' x2='551.7074158763871' y1='131.0' y2='131.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
-<circle cx='345.0' cy='131.0' r='5' fill='#d1242f'/>
-<text x='698' y='135.0' fill='#57606a'>1/4</text>
+<line x1='292.9472093522997' x2='549.3605868914511' y1='131.0' y2='131.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='402.5' cy='131.0' r='5' fill='#d1242f'/>
+<text x='698' y='135.0' fill='#57606a'>3/8</text>
 <text x='220' y='157.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor</text>
 <line x1='230' x2='690' y1='153.0' y2='153.0' stroke='#eaeef2'/>
-<line x1='464.6459906141604' x2='690.0' y1='153.0' y2='153.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<line x1='540.7688150249967' x2='690.0' y1='153.0' y2='153.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
 <circle cx='690.0' cy='153.0' r='5' fill='#0969da'/>
-<text x='698' y='157.0' fill='#57606a'>4/4</text>
+<text x='698' y='157.0' fill='#57606a'>8/8</text>
 <text x='230' y='196' text-anchor='middle' fill='#57606a'>0%</text>
 <text x='460.0' y='196' text-anchor='middle' fill='#57606a'>50%</text>
 <text x='690' y='196' text-anchor='middle' fill='#57606a'>100%</text>

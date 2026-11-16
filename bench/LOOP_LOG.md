@@ -304,3 +304,5 @@ what changed. Results live in bench/results/.
   and a change summary: partial, failed by the strict grader (same rule for every arm). M and A0 just accepted "done".
 - Iteration 13 STARTED: more power for E vs C4 on ORCH-03: runs 4-7 for E and C4 in the same out dirs
   (`--runs 8 --arms E` in iter12 with ANCHOR_BIN=$S/bin/anchor-iter12; `--runs 8 --arms C4` in iter12-c4).
+- Iteration 13 COMPLETE (ORCH-03 runs 4-7 for E and C4): totals E 8/8 ($0.297), C4 3/8 ($0.226); E vs C4 p=0.026,
+  E vs M/A0 p=0.002. First significant win over Mem0: Anchor applies a habit the user showed but never stated.
