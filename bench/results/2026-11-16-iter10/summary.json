@@ -1,0 +1,39 @@
+[
+  {
+    "agent": "claude",
+    "case": "orch02",
+    "arm": "E",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 18364.5,
+    "s1_input_tokens": 285953.0,
+    "cost_usd": 0.0250573,
+    "s1_cost_usd": 0.3798364,
+    "tests_pass": 4
+  },
+  {
+    "agent": "claude",
+    "case": "orch02",
+    "arm": "C4",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 21664.5,
+    "s1_input_tokens": 120416.5,
+    "cost_usd": 0.02289445,
+    "s1_cost_usd": 0.257041,
+    "tests_pass": 4,
+    "p_vs_anchor": 1.0
+  }
+]

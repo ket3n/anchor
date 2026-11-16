@@ -273,3 +273,16 @@ what changed. Results live in bench/results/.
   1 ($0.038 -> $0.025), orchestration_log calls 6 -> 3.
 - Iteration 10 STARTED: orch02 × E × 4 (ANCHOR_BIN=$S/bin/anchor-iter10, scratchpad/iter10) and × C4 × 4
   (scratchpad/iter10-c4), same window. M/B/A0 not re-run: 0/4 on ORCH-01 and ORCH-02, nothing they use changed.
+- Iteration 10 COMPLETE (ORCH-02, v0.3.3): E 4/4 $0.405 (final session 18k tokens, below C4's 22k), C4 4/4 $0.280.
+  The smoke run's $0.36 was optimistic; the gap is now in the orchestration turns (start call + ToolSearch + logs).
+- Change (uncommitted until measured): a plain-words coordination request with no similar episode now starts the
+  episode in the UserPromptSubmit hook and binds the session (the request is the permission; ANCHOR_ORCH_AUTOSTART=0
+  turns it off); a similar episode still gets an offer to resume. Tests updated (8 orchestration tests green).
+- Iteration 11 STARTED: orch02 × E × 4 (ANCHOR_BIN=$S/bin/anchor-iter11, scratchpad/iter11). Compared with iter10's
+  C4 (same case, ~20 minutes earlier, very stable: $0.276-0.286) to save quota.
+- Iteration 11 COMPLETE (ORCH-02, E only, auto-start): E 4/4, mean $0.360 (runs 0.296-0.406) vs $0.405 in iter10
+  (-11%); C4 reference $0.280. Run 0 made no orchestration tool call at all ($0.296); the rest still log some of
+  Claude's own decisions. Auto-start kept: v0.3.4. Results: bench/results/2026-11-16-iter11.
+  Summary of orchestration so far: on ORCH-01/02 only Anchor and Mem0 carry orchestration state to a new session
+  (both 4/4 vs 0/4 for built-in memory, CLAUDE.md, none); Mem0 stays ~22% cheaper, partly because its cloud
+  extraction model is not billed to the session.

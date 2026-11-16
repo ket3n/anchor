@@ -1,0 +1,20 @@
+[
+  {
+    "agent": "claude",
+    "case": "orch02",
+    "arm": "E",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 18389.5,
+    "s1_input_tokens": 248852.5,
+    "cost_usd": 0.0251573,
+    "s1_cost_usd": 0.33501162500000004,
+    "tests_pass": 4
+  }
+]

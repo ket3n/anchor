@@ -657,6 +657,20 @@ pub fn hook(event: &str, input: &Value, repo: Option<&std::path::Path>, project_
                     )));
                 }
             }
+            // the user asked, in their own words, for coordination and nothing similar exists: that request is the
+            // permission, so start the episode here (no tool round trip) and record the request verbatim
+            if std::env::var("ANCHOR_ORCH_AUTOSTART").as_deref() != Ok("0")
+                && let Some(o) = Orch::open(true)?
+            {
+                let id = o.create_episode(&short(p, 200))?;
+                o.link(&id, session, "orchestrator", None)?;
+                o.conn.execute("UPDATE members SET role='orchestrator' WHERE episode=?1 AND session=?2", params![id, session])?;
+                o.touch_session(session, input.get("cwd").and_then(|v| v.as_str()), repo.map(|r| r.to_string_lossy()).as_deref(), Some(p))?;
+                let n = o.log(&id, "user", p, None, "user")?;
+                return Ok(Some(format!(
+                    "Anchor: you are now the orchestrator of {id} (started because the user asked you to coordinate). The user's messages are recorded verbatim (this one is #{n}); do not log them again. Log only your own decisions, delegations and the outcome with `orchestration_log`; close it with kind \"end\". If this was not a request to coordinate, call `orchestration_log` with kind \"end\" and text \"not an orchestration\".\n{AUTHORITY}"
+                )));
+            }
             return Ok(Some("Anchor: this request is about coordinating other sessions or workers. Use the orchestration memory: call `orchestration_start` with the goal (it finds or resumes past orchestrations); the user's messages are then recorded automatically, and you log your own decisions and delegations with `orchestration_log`.".into()));
         }
     }

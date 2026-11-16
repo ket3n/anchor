@@ -238,16 +238,24 @@ fn commands_are_installed_without_overwriting_the_users_own() {
 #[test]
 fn coordination_requests_in_plain_words_point_to_orchestration_memory() {
     let e = env();
-    let hint = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "s1", json!({"prompt": "You are coordinating three worker sessions for me: api, web and docs."})));
-    assert!(hint.contains("orchestration_start"), "{hint}");
+    // a plain-words request to coordinate starts the episode right away and binds this session as orchestrator
+    let started = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "s1", json!({"prompt": "You are coordinating three worker sessions for me: api, web and docs."})));
+    assert!(started.contains("you are now the orchestrator of e:") && started.contains("Authority:"), "{started}");
     let again = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "s1", json!({"prompt": "keep track of the workers please"})));
-    assert!(!again.contains("orchestration_start"), "only once per session: {again}");
+    assert!(again.contains("recorded verbatim") && !again.contains("now the orchestrator"), "already orchestrating: {again}");
+    let ep0 = cli(&e, &["orch", "episodes"]);
+    assert_eq!(ep0.lines().count(), 1, "{ep0}");
+    // the same request in another session, with an episode like it already there, offers to resume instead
+    let offer = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "s9", json!({"prompt": "You are coordinating the worker sessions api, web and docs for me."})));
+    assert!(offer.contains("resume="), "{offer}");
+    assert_eq!(cli(&e, &["orch", "episodes"]).lines().count(), 1, "no duplicate episode");
     let plain = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "s2", json!({"prompt": "Fix the flaky login test in api"})));
     assert!(!plain.contains("orchestration_start"), "ordinary work gets no hint: {plain}");
     assert!(anchor::orch::coordination_intent("You're picking up coordination of the OAuth migration workers"));
     assert!(!anchor::orch::coordination_intent("manage the database connection pool"));
 
     // a session picking up coordination sees the closest past episode's state before choosing to resume
+    let e = env(); // fresh store: the episode auto-started above would otherwise be the closest match
     let a = episode_id(&start(&e, &e.plain, "orc1", json!({"goal": "OAuth migration across api web docs workers"})));
     mcp(&e, &e.plain, "orchestration_log", json!({"kind": "decision", "text": "docs may push the changelog straight to main"}));
     let (offer, _) = mcp(&e, &e.plain, "orchestration_start", json!({"goal": "pick up coordination of the OAuth migration workers"}));
