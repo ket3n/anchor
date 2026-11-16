@@ -48,7 +48,8 @@ def distractors(n=40):
 
 TARGETS["dec04"] = TARGETS["dec03"]
 TARGETS["stale04"] = TARGETS["stale03"]
-LARGE = {"dec04", "stale04", "cor05"}
+TARGETS["stale05"] = TARGETS["stale03"]
+LARGE = {"dec04", "stale04", "cor05", "stale05"}
 
 
 def notes_for(case, run=0):

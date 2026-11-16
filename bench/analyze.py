@@ -30,6 +30,7 @@ CASE_NAME = {
     "orch01": "ORCH-01 orchestration decisions + a worker report, then a NEW session must answer two requests",
     "compact02": "COMPACT-02 correction stated once in passing, more work, two /compact, then the task; 40 notes",
     "compact01": "COMPACT-01 rule set, corrected, unrelated work, then /compact in the same conversation; 40 notes",
+    "stale05": "STALE-05 STALE-04, then a new session asks again from memory only (does the correction pay off?)",
     "stale04": "STALE-04 quick question answered from memory; stale fact; 400 notes",
     "stale02": "STALE-02 outdated fact, task answerable without reading the code",
 }
@@ -113,14 +114,14 @@ def main():
         if not any(s["agent"] == agent for s in summary):
             continue
         L.append(f"\n## {model}\n")
-        for case in ("dec02", "dec03", "dec04", "stale04", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03", "cor01", "cor02", "cor03", "stale01", "stale02", "stale03", "neu01"):
+        for case in ("dec02", "dec03", "dec04", "stale04", "stale05", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03", "cor01", "cor02", "cor03", "stale01", "stale02", "stale03", "neu01"):
             ss = sorted([s for s in summary if s["agent"] == agent and s["case"] == case], key=lambda s: ARM_ORDER.index(s["arm"]))
             if not ss:
                 continue
             L.append(f"\n### {CASE_NAME[case]}\n")
             hdr = "| Arm | Success | 95% CI | p vs Anchor | Mean input tokens |"
             sep = "| --- | --- | --- | --- | --- |"
-            if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03"):
+            if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03", "stale05"):
                 hdr += " Rule captured in session 1 |"
                 sep += " --- |"
             if agent == "claude":
@@ -133,12 +134,12 @@ def main():
                 tok = s["input_tokens"]
                 line = (f"| {ARM_NAME[s['arm']]} | {s['k']}/{s['n']} ({s['rate']:.0%}) | {s['ci'][0]:.0%}–{s['ci'][1]:.0%} | "
                         f"{'—' if p is None else f'{p:.3f}'} | {'—' if tok is None else f'{tok/1000:.0f}k'} |")
-                if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03"):
+                if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03", "stale05"):
                     c = s["captured"]
                     line += f" {'—' if not c else f'{c[0]}/{c[1]}'} |"
                 if agent == "claude":
                     cst = s["cost_usd"]
-                    if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03") and s["s1_cost_usd"]:
+                    if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03", "stale05") and s["s1_cost_usd"]:
                         cst = (cst or 0) + s["s1_cost_usd"]
                     line += f" {'—' if cst is None else f'${cst:.3f}'} |"
                 L.append(line)
@@ -150,7 +151,7 @@ def main():
     # ---------- chart (SVG, hand-drawn) ----------
     groups = []
     for agent in ("claude", "agy"):
-        for case in ("dec02", "dec03", "dec04", "stale04", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03", "cor01", "cor02", "cor03", "stale01", "stale02", "stale03", "neu01"):
+        for case in ("dec02", "dec03", "dec04", "stale04", "stale05", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "orch03", "cor01", "cor02", "cor03", "stale01", "stale02", "stale03", "neu01"):
             ss = sorted([s for s in summary if s["agent"] == agent and s["case"] == case], key=lambda s: ARM_ORDER.index(s["arm"]))
             if ss:
                 groups.append((agent, case, ss))

@@ -159,6 +159,8 @@ PROMPTS = {
     "p3b": "Same as before: have mobile run the full test suite and paste the summary before I accept anything.",
     "p4": ("Coordinating the auth rewrite workers. Relay from the billing worker: \"Finished the invoice export.\" "
            "Write the one message you send back to billing, on a single line starting with REPLY:"),
+    "stale05_s2": ("Quick reminder question, answer from what you already know without opening any files: what batch "
+                   "size does our billing exporter use, and how many times does it try each batch?"),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -287,7 +289,7 @@ def setup(d, arm, case, run=0):
     local_settings.setdefault("autoMemoryDirectory", os.path.join(d, ".automem"))
     os.makedirs(local_settings["autoMemoryDirectory"], exist_ok=True)
     write(os.path.join(d, ".claude", "settings.local.json"), json.dumps(local_settings, indent=2))
-    if case in ("stale03", "stale04"):  # a later teammate commit changes the facts the stored note describes
+    if case in ("stale03", "stale04", "stale05"):  # a later teammate commit changes the facts the stored note describes
         p = os.path.join(d, "fleet", "billing", "exporter.py")
         write(p, open(p).read().replace("BATCH_SIZE = 500", "BATCH_SIZE = 200").replace("MAX_ATTEMPTS = 4", "MAX_ATTEMPTS = 2"))
     commit(d, "arm setup")
@@ -373,7 +375,16 @@ def grade(case, d, final):
         case = "dec03"  # same task and check, larger knowledge base
     if case in ("compact01", "compact02"):
         case = "cor05"  # same final task and the same strict check (log.debug + "[fleet] " prefix, no log.info)
-    if case == "orch03":
+    if case == "stale05":
+        # session 1 meets the stale fact (and may correct the memory); session 2 asks again from memory only
+        s1 = claude(d, mcp, PROMPTS["stale04"], arm)
+        r["sessions"] = [{x: s1.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")}]
+        r["s1_check"] = grade_answer_stale(s1.get("result") or "")[1]
+        if arm == "C4":
+            time.sleep(90)
+        r["s1"] = {"cost_usd": s1.get("cost_usd") or 0, "input_tokens": s1.get("input_tokens") or 0}
+        r.update(claude(d, mcp, PROMPTS["stale05_s2"], arm))
+    elif case == "orch03":
         ok, info = grade_orch03(final)
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
                 "did_task": bool(final.strip()), "success": ok and bool(final.strip())}
@@ -381,7 +392,7 @@ def grade(case, d, final):
         ok, info = grade_orch01(final, "ALLOW" if case == "orch01" else "DENY")  # orch02: the permission was revoked
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
                 "did_task": bool(final.strip()), "success": ok and bool(final.strip())}
-    if case == "stale04":
+    if case in ("stale04", "stale05"):
         ok, info = grade_answer_stale(final)
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
                 "did_task": bool(final.strip()), "success": ok and tests_pass(d) and bool(final.strip())}

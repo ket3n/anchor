@@ -321,3 +321,8 @@ what changed. Results live in bench/results/.
   Remaining cost gap vs Mem0 on ORCH cases (~25-30%) is mostly Claude's own orchestration_log calls; next idea to
   test: a compact briefing (decisions + last user messages only) for follow-up sessions instead of the full one.
 - Housekeeping: /tmp (tmpfs) was filled by 12G of benchmark run dirs, causing a 'disk I/O error' in an engine test at pre-push. Deleted analysed run dirs (results.jsonl kept; summaries are in bench/results), removed the iter7 worktree: scratchpad 1.3G, /tmp 14G free. Delete run dirs after each analysed iteration from now on.
+- 16:37 session 49%, week 69%. NEW case STALE-05 (the payoff test proposed after STALE-04): session 1 is STALE-04
+  (stale stored fact, changed code; the agent may correct its memory); session 2, a new session, asks again "from
+  what you already know without opening any files". Graded on session 2's answer (current 200 / 2 attempts, not the
+  stale 500 / 4). 400 notes. Arms M, C4, E (Anchor v0.3.4 = $S/bin/anchor-iter12).
+- Iteration 15 STARTED: stale05 × M,E × 4 (scratchpad/iter15) and × C4 × 4 (scratchpad/iter15-c4).
