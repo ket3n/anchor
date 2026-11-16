@@ -332,3 +332,7 @@ what changed. Results live in bench/results/.
   (three "don't know", one stale 500). E vs M p=0.029: Anchor's extra correction turn pays off in the next session.
   Mem0 gets the same result by extracting session 1's answer in its cloud (cost not visible), and is cheaper here.
 - 18:37 session 5%, week 72% (pacing: no runs this tick). README results table rewritten (7 arms, ORCH/STALE-05, significance); Claude Doc report updated (rev 19: iterations 12-15). Next candidate when quota allows: a compact follow-up briefing (decisions + last user messages) to cut ORCH cost, measured on ORCH-03/02 E only.
+- Nov 17 00:37: session 23%, WEEK 91% (resets Nov 22 01:30). Benchmarks PAUSED until the weekly reset: spending the
+  rest would leave the user without Claude for 4+ days. Ticks until then only check quota and log (no runs, no
+  heavy work). Resume plan after the reset: compact follow-up briefing (decisions + last user messages) measured on
+  ORCH-03/02 E only; then ab.py on a real repo if the user names one.
