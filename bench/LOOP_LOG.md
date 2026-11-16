@@ -331,3 +331,4 @@ what changed. Results live in bench/results/.
   Session 1 (STALE-04): every arm answered from the current code. Session 2 (memory only): E 4/4, C4 4/4, M 0/4
   (three "don't know", one stale 500). E vs M p=0.029: Anchor's extra correction turn pays off in the next session.
   Mem0 gets the same result by extracting session 1's answer in its cloud (cost not visible), and is cheaper here.
+- 18:37 session 5%, week 72% (pacing: no runs this tick). README results table rewritten (7 arms, ORCH/STALE-05, significance); Claude Doc report updated (rev 19: iterations 12-15). Next candidate when quota allows: a compact follow-up briefing (decisions + last user messages) to cut ORCH cost, measured on ORCH-03/02 E only.
