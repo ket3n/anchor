@@ -287,3 +287,10 @@ what changed. Results live in bench/results/.
   (both 4/4 vs 0/4 for built-in memory, CLAUDE.md, none); Mem0 stays ~22% cheaper, partly because its cloud
   extraction model is not billed to the session.
 - Claude Doc report updated (rev 18): 'Results update: iterations 5-11' (project tasks with Mem0/claude-mem, compaction saturated, orchestration results, v0.2.0-v0.3.4 changes).
+- 10:37 session 71%, week 60% (5.5 days left: pace runs). NEW case ORCH-03 (pattern learning): in three separate
+  sessions a worker reports "done" and the user each time pushes back the same way (run the full test suite and
+  paste the summary), never stated as a rule; a new session gets a different worker's "done" and must reply on a
+  REPLY: line asking for the full test suite and its summary (grader self-tested). Arms A0, M, E, C4 (B left out:
+  CLAUDE.md was never updated in the ORCH cases).
+- Iteration 12 STARTED: orch03 × A0,M,E × 4 (ANCHOR_BIN=$S/bin/anchor-iter12 = v0.3.4, scratchpad/iter12) and
+  × C4 × 4 (scratchpad/iter12-c4).

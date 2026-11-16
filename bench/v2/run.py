@@ -149,6 +149,16 @@ PROMPTS = {
             "The docs worker may NOT push straight to main any more. Note it."),
     "o2c": ("Separately, I'm also coordinating two billing-cleanup workers, ledger and invoices: ledger may start right away, "
             "invoices waits for ledger. Keep that apart from the OAuth work."),
+    # ORCH-03: the user's habit is shown three times, in three sessions, and never stated as a rule
+    "p1a": ("I'm coordinating the auth rewrite across worker sessions. Relay from the api worker: \"Done with the token "
+            "refresh endpoint.\" How do you answer it?"),
+    "p1b": "No, don't accept it yet. Tell api to run the full test suite and paste the summary, then we'll see.",
+    "p2a": ("Coordinating the auth rewrite again. Relay from the web worker: \"Login page is finished.\" What do you reply?"),
+    "p2b": "Hold on. Ask web to run the full test suite first and paste the summary before we call it finished.",
+    "p3a": ("Back on the auth rewrite workers. Relay from the mobile worker: \"Session handling done.\" Your reply?"),
+    "p3b": "Same as before: have mobile run the full test suite and paste the summary before I accept anything.",
+    "p4": ("Coordinating the auth rewrite workers. Relay from the billing worker: \"Finished the invoice export.\" "
+           "Write the one message you send back to billing, on a single line starting with REPLY:"),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -351,11 +361,22 @@ def grade_orch01(final, want_docs="ALLOW"):
     return ok, f"web={web[-1:]} docs={docs[-1:]}"
 
 
+def grade_orch03(final):
+    line = next((l for l in final.splitlines() if l.strip().upper().startswith("REPLY:")), "")
+    l = line.lower()
+    ok = bool(line) and "test" in l and ("suite" in l or "all tests" in l) and "summary" in l
+    return ok, f"reply={line[:160]!r}"
+
+
 def grade(case, d, final):
     if case == "dec04":
         case = "dec03"  # same task and check, larger knowledge base
     if case in ("compact01", "compact02"):
         case = "cor05"  # same final task and the same strict check (log.debug + "[fleet] " prefix, no log.info)
+    if case == "orch03":
+        ok, info = grade_orch03(final)
+        return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
+                "did_task": bool(final.strip()), "success": ok and bool(final.strip())}
     if case in ("orch01", "orch02"):
         ok, info = grade_orch01(final, "ALLOW" if case == "orch01" else "DENY")  # orch02: the permission was revoked
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
@@ -384,7 +405,20 @@ def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
     mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
-    if case in ("orch01", "orch02"):
+    if case == "orch03":
+        import uuid
+        r["sessions"] = []
+        for a, b in (("p1a", "p1b"), ("p2a", "p2b"), ("p3a", "p3b")):
+            sess = str(uuid.uuid4())
+            for n, k in enumerate((a, b)):
+                sx = claude(d, mcp, PROMPTS[k], arm, sess=sess, first=(n == 0))
+                r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
+            if arm == "C4":
+                time.sleep(90)
+        r["s1"] = {"cost_usd": sum((x["cost_usd"] or 0) for x in r["sessions"]),
+                   "input_tokens": sum((x["input_tokens"] or 0) for x in r["sessions"])}
+        r.update(claude(d, mcp, PROMPTS["p4"], arm))  # new session; the habit was never stated as a rule
+    elif case in ("orch01", "orch02"):
         # an orchestration conversation (decisions, a worker report, unrelated work), then a NEW session takes over
         import uuid
         sess = str(uuid.uuid4())
