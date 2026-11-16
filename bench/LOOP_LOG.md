@@ -326,3 +326,8 @@ what changed. Results live in bench/results/.
   what you already know without opening any files". Graded on session 2's answer (current 200 / 2 attempts, not the
   stale 500 / 4). 400 notes. Arms M, C4, E (Anchor v0.3.4 = $S/bin/anchor-iter12).
 - Iteration 15 STARTED: stale05 × M,E × 4 (scratchpad/iter15) and × C4 × 4 (scratchpad/iter15-c4).
+- Iteration 15 harness error: the STALE-05 session block had been inserted into grade() instead of run_case() (KeyError, no sessions ran). Fixed; Mem0 seeds of the failed runs deleted; iteration 15 restarted from scratch.
+- Iteration 15 COMPLETE (STALE-05, restarted after the harness fix). Results: bench/results/2026-11-16-iter15.
+  Session 1 (STALE-04): every arm answered from the current code. Session 2 (memory only): E 4/4, C4 4/4, M 0/4
+  (three "don't know", one stale 500). E vs M p=0.029: Anchor's extra correction turn pays off in the next session.
+  Mem0 gets the same result by extracting session 1's answer in its cloud (cost not visible), and is cheaper here.

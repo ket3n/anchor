@@ -375,16 +375,7 @@ def grade(case, d, final):
         case = "dec03"  # same task and check, larger knowledge base
     if case in ("compact01", "compact02"):
         case = "cor05"  # same final task and the same strict check (log.debug + "[fleet] " prefix, no log.info)
-    if case == "stale05":
-        # session 1 meets the stale fact (and may correct the memory); session 2 asks again from memory only
-        s1 = claude(d, mcp, PROMPTS["stale04"], arm)
-        r["sessions"] = [{x: s1.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")}]
-        r["s1_check"] = grade_answer_stale(s1.get("result") or "")[1]
-        if arm == "C4":
-            time.sleep(90)
-        r["s1"] = {"cost_usd": s1.get("cost_usd") or 0, "input_tokens": s1.get("input_tokens") or 0}
-        r.update(claude(d, mcp, PROMPTS["stale05_s2"], arm))
-    elif case == "orch03":
+    if case == "orch03":
         ok, info = grade_orch03(final)
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
                 "did_task": bool(final.strip()), "success": ok and bool(final.strip())}
@@ -416,7 +407,16 @@ def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
     mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
-    if case == "orch03":
+    if case == "stale05":
+        # session 1 meets the stale fact (and may correct the memory); session 2 asks again from memory only
+        s1 = claude(d, mcp, PROMPTS["stale04"], arm)
+        r["sessions"] = [{x: s1.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")}]
+        r["s1_check"] = grade_answer_stale(s1.get("result") or "")[1]
+        if arm == "C4":
+            time.sleep(90)
+        r["s1"] = {"cost_usd": s1.get("cost_usd") or 0, "input_tokens": s1.get("input_tokens") or 0}
+        r.update(claude(d, mcp, PROMPTS["stale05_s2"], arm))
+    elif case == "orch03":
         import uuid
         r["sessions"] = []
         for a, b in (("p1a", "p1b"), ("p2a", "p2b"), ("p3a", "p3b")):

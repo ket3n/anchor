@@ -1,0 +1,58 @@
+[
+  {
+    "agent": "claude",
+    "case": "stale05",
+    "arm": "M",
+    "k": 0,
+    "n": 4,
+    "rate": 0.0,
+    "ci": [
+      0.0,
+      0.48990002040399916
+    ],
+    "captured": null,
+    "input_tokens": 27724.5,
+    "s1_input_tokens": 82280.25,
+    "cost_usd": 0.0649273,
+    "s1_cost_usd": 0.095001575,
+    "tests_pass": 4,
+    "p_vs_anchor": 0.02857142857142857
+  },
+  {
+    "agent": "claude",
+    "case": "stale05",
+    "arm": "E",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 17367.0,
+    "s1_input_tokens": 74553.75,
+    "cost_usd": 0.022899799999999998,
+    "s1_cost_usd": 0.050788425000000005,
+    "tests_pass": 4
+  },
+  {
+    "agent": "claude",
+    "case": "stale05",
+    "arm": "C4",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 17205.25,
+    "s1_input_tokens": 39778.5,
+    "cost_usd": 0.021664700000000002,
+    "s1_cost_usd": 0.03612545,
+    "tests_pass": 4,
+    "p_vs_anchor": 1.0
+  }
+]
