@@ -286,3 +286,4 @@ what changed. Results live in bench/results/.
   Summary of orchestration so far: on ORCH-01/02 only Anchor and Mem0 carry orchestration state to a new session
   (both 4/4 vs 0/4 for built-in memory, CLAUDE.md, none); Mem0 stays ~22% cheaper, partly because its cloud
   extraction model is not billed to the session.
+- Claude Doc report updated (rev 18): 'Results update: iterations 5-11' (project tasks with Mem0/claude-mem, compaction saturated, orchestration results, v0.2.0-v0.3.4 changes).
