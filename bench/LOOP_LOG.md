@@ -294,3 +294,4 @@ what changed. Results live in bench/results/.
   CLAUDE.md was never updated in the ORCH cases).
 - Iteration 12 STARTED: orch03 × A0,M,E × 4 (ANCHOR_BIN=$S/bin/anchor-iter12 = v0.3.4, scratchpad/iter12) and
   × C4 × 4 (scratchpad/iter12-c4).
+- 10:41 quota guard stopped iter12 at 90% (session jumped 71%->90%). Partial ORCH-03: E 1/1 (asked for full test suite + summary), M 0/1, A0 0/2, C4 0/0. Unfinished runs cleaned (Mem0 memories deleted). Resume after the 13:00 reset with the iter12 commands (ANCHOR_BIN=$S/bin/anchor-iter12).
