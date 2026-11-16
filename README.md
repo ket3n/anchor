@@ -174,16 +174,26 @@ Headless Claude Code (Sonnet), Claude's built-in memory on in every arm, every a
 4 runs per arm per task per iteration, strict hidden checks, every failure read by hand. Harness and raw
 results are in [`bench/`](bench/) ([protocol](bench/PROTOCOL.md), [log](bench/LOOP_LOG.md)).
 
-| Task | Anchor | Claude built-in memory | CLAUDE.md | MCP memory server | basic-memory |
-| --- | --- | --- | --- | --- | --- |
-| Keep a past decision, 400 notes (DEC-04) | 8/8 | 8/8 | 8/8 | 6/8 | 8/8 |
-| User corrects a rule mid-way (COR-04) | 4/4 | 3/4 | 3/4 | 4/4 | 4/4 |
-| Correction + gap session, 400 notes (COR-05) | 4/4 | 1/4 | 2/4 | 4/4 | 2/4 |
-| Mean cost per run vs built-in memory | 11–53% cheaper on every task | — | — | — | — |
+Seven arms so far: Anchor, Claude's built-in memory, CLAUDE.md, the official MCP memory server, basic-memory,
+claude-mem and Mem0 (plus a no-memory control for the orchestration cases). Selected results:
 
-claude-mem and Mem0 are being added; see the log for their latest numbers. No single difference is
-statistically significant yet (Fisher p > 0.1). The repository is synthetic; real-world value is what
-[EVALUATING.md](EVALUATING.md) helps you measure.
+| Task | Anchor | Mem0 | claude-mem | Built-in memory | CLAUDE.md | No memory |
+| --- | --- | --- | --- | --- | --- | --- |
+| Keep a past decision, 400 notes (DEC-04) | 12/12 | 4/4 | **0/4** | 12/12 | 8/8 | — |
+| Correction + gap session, 400 notes (COR-05) | 8/8 | 4/4 | 4/4 | **2/8** | 2/4 | — |
+| Stale fact, then asked again from memory (STALE-05) | 4/4 | 4/4 | — | **0/4** | — | — |
+| New session takes over an orchestration (ORCH-01) | 4/4 | 4/4 | — | **0/4** | **0/4** | **0/4** |
+| … with a reversed decision (ORCH-02) | 4/4 | 4/4 | — | **0/4** | **0/4** | **0/4** |
+| Apply a habit shown 3 times, never stated (ORCH-03) | **8/8** | **3/8** | — | **0/4** | — | **0/4** |
+
+- Significant (Fisher p < 0.05): Anchor beats Mem0 on ORCH-03 (p = 0.026); Anchor beats built-in memory, CLAUDE.md
+  and no memory on ORCH-01/02/03 and STALE-05; Anchor beats claude-mem on DEC-04.
+- Ties: Anchor and Mem0 on the other tasks. Mem0 is usually somewhat cheaper per run (its cloud extraction model
+  is not billed to the session, and it sends conversations to Mem0's servers); Anchor runs locally with no model.
+  Against Claude's built-in memory, Anchor was cheaper on every project task (11–53%).
+- Saturated (every arm passed): compaction cases, the irrelevant-memory harm check, simple stale facts.
+
+The repository is synthetic; real-world value is what [EVALUATING.md](EVALUATING.md) helps you measure.
 
 ## Known limits
 
