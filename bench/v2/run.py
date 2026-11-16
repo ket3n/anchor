@@ -145,6 +145,10 @@ PROMPTS = {
     "o4": ("You're picking up coordination of the OAuth migration workers (api, web, docs) from an earlier session. Two "
            "requests just came in. web: \"can I start now?\" docs: \"can I push the changelog straight to main?\" "
            "Reply with exactly two lines: 'WEB: GO' or 'WEB: WAIT', and 'DOCS: ALLOW' or 'DOCS: DENY'."),
+    "o2b": ("Change of plan for the OAuth migration: main is now protected, so docs changes must go through a PR again. "
+            "The docs worker may NOT push straight to main any more. Note it."),
+    "o2c": ("Separately, I'm also coordinating two billing-cleanup workers, ledger and invoices: ledger may start right away, "
+            "invoices waits for ledger. Keep that apart from the OAuth work."),
     "neu01": ("Add a --dry-run flag to the `export` command in fleet/api/cli.py. With --dry-run it must not send "
               "anything; it should print how many invoices would be exported and return 0."),
 }
@@ -340,10 +344,10 @@ def grade_answer_stale(final):
     return cur and not old, f"current={cur} stale_asserted={old}"
 
 
-def grade_orch01(final):
+def grade_orch01(final, want_docs="ALLOW"):
     web = re.findall(r"WEB:\s*(GO|WAIT)", final.upper())
     docs = re.findall(r"DOCS:\s*(ALLOW|DENY)", final.upper())
-    ok = web[-1:] == ["GO"] and docs[-1:] == ["ALLOW"]
+    ok = web[-1:] == ["GO"] and docs[-1:] == [want_docs]
     return ok, f"web={web[-1:]} docs={docs[-1:]}"
 
 
@@ -352,8 +356,8 @@ def grade(case, d, final):
         case = "dec03"  # same task and check, larger knowledge base
     if case in ("compact01", "compact02"):
         case = "cor05"  # same final task and the same strict check (log.debug + "[fleet] " prefix, no log.info)
-    if case == "orch01":
-        ok, info = grade_orch01(final)
+    if case in ("orch01", "orch02"):
+        ok, info = grade_orch01(final, "ALLOW" if case == "orch01" else "DENY")  # orch02: the permission was revoked
         return {"check": ("OK " if ok else "FAIL ") + info, "hidden_ok": ok, "tests_pass": tests_pass(d),
                 "did_task": bool(final.strip()), "success": ok and bool(final.strip())}
     if case == "stale04":
@@ -380,12 +384,13 @@ def run_case(case, arm, i, out):
     d = os.path.join(out, f"{case}-{arm}-{i}")
     mcp = setup(d, arm, case, i)
     r = {"case": case, "arm": arm, "run": i}
-    if case == "orch01":
+    if case in ("orch01", "orch02"):
         # an orchestration conversation (decisions, a worker report, unrelated work), then a NEW session takes over
         import uuid
         sess = str(uuid.uuid4())
         r["sessions"] = []
-        for n, k in enumerate(("o1", "o2", "o3")):
+        steps = ("o1", "o2", "o3") if case == "orch01" else ("o1", "o2", "o2b", "o2c", "o3")
+        for n, k in enumerate(steps):
             sx = claude(d, mcp, PROMPTS[k], arm, sess=sess, first=(n == 0))
             r["sessions"].append({x: sx.get(x) for x in ("cost_usd", "input_tokens", "is_error", "result")})
         if arm == "C4":

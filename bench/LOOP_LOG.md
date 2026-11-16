@@ -256,3 +256,8 @@ what changed. Results live in bench/results/.
 - Next: ORCH-02 (harder): a decision is reversed later in the conversation (docs push permission revoked) and a
   second, unrelated orchestration exists in the same project. Tests whether stale decisions are kept apart.
   Known Anchor gap for it: orchestration entries have no supersede; a reversed decision shows both. Fix first.
+- v0.3.2: orchestration entries can be superseded (`orchestration_log` with `supersedes: <#n>`); briefings number
+  entries and hide superseded ones; old stores migrate (ALTER TABLE). Test added (7 orchestration tests).
+- NEW case ORCH-02: ORCH-01 plus a later reversal (docs may NOT push to main any more) and a second, unrelated
+  orchestration (billing workers) in the same project; the new session must answer WEB: GO and DOCS: DENY.
+- Iteration 9 STARTED: orch02 × A0,M,B,E × 4 (scratchpad/iter9, ANCHOR_BIN=$S/bin/anchor-iter9) and × C4 × 4 (iter9-c4).

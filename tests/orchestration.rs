@@ -253,3 +253,19 @@ fn coordination_requests_in_plain_words_point_to_orchestration_memory() {
     let (offer, _) = mcp(&e, &e.plain, "orchestration_start", json!({"goal": "pick up coordination of the OAuth migration workers"}));
     assert!(offer.contains(&a) && offer.contains("docs may push the changelog straight to main"), "{offer}");
 }
+
+#[test]
+fn a_reversed_decision_replaces_the_old_one() {
+    let e = env();
+    let ep = episode_id(&start(&e, &e.plain, "orc1", json!({"goal": "OAuth migration across api web docs"})));
+    let (first, _) = mcp(&e, &e.plain, "orchestration_log", json!({"kind": "decision", "text": "docs may push the changelog straight to main"}));
+    let n: i64 = regex::Regex::new(r"#(\d+)").unwrap().captures(&first).unwrap()[1].parse().unwrap();
+    let brief = cli(&e, &["orch", "show", &ep]);
+    assert!(brief.contains(&format!("#{n} docs may push")), "entries are numbered: {brief}");
+    let (second, err) = mcp(&e, &e.plain, "orchestration_log", json!({"kind": "decision", "text": "docs changes go through a PR again (main is protected)", "supersedes": n}));
+    assert!(!err && second.contains(&format!("replaces #{n}")), "{second}");
+    let after = cli(&e, &["orch", "show", &ep]);
+    assert!(after.contains("go through a PR again") && !after.contains("may push the changelog"), "{after}");
+    let (bad, err) = mcp(&e, &e.plain, "orchestration_log", json!({"kind": "decision", "text": "x", "supersedes": 9999}));
+    assert!(err && bad.contains("no entry #9999"), "{bad}");
+}

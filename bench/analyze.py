@@ -25,6 +25,7 @@ CASE_NAME = {
     "dec04": "DEC-04 keep a decision; 400-note knowledge base, target at a random position",
     "cor04": "COR-04 user changes a rule in session 2; session 3 must follow the new rule; 40 notes",
     "cor05": "COR-05 rule set, corrected, then an unrelated session; session 4 must follow the correction; 400 notes",
+    "orch02": "ORCH-02 like ORCH-01, but the docs permission is revoked later and a second orchestration exists",
     "orch01": "ORCH-01 orchestration decisions + a worker report, then a NEW session must answer two requests",
     "compact02": "COMPACT-02 correction stated once in passing, more work, two /compact, then the task; 40 notes",
     "compact01": "COMPACT-01 rule set, corrected, unrelated work, then /compact in the same conversation; 40 notes",
@@ -111,14 +112,14 @@ def main():
         if not any(s["agent"] == agent for s in summary):
             continue
         L.append(f"\n## {model}\n")
-        for case in ("dec02", "dec03", "dec04", "stale04", "cor04", "cor05", "compact01", "compact02", "orch01", "cor01", "cor02", "cor03", "stale01", "stale02", "stale03", "neu01"):
+        for case in ("dec02", "dec03", "dec04", "stale04", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "cor01", "cor02", "cor03", "stale01", "stale02", "stale03", "neu01"):
             ss = sorted([s for s in summary if s["agent"] == agent and s["case"] == case], key=lambda s: ARM_ORDER.index(s["arm"]))
             if not ss:
                 continue
             L.append(f"\n### {CASE_NAME[case]}\n")
             hdr = "| Arm | Success | 95% CI | p vs Anchor | Mean input tokens |"
             sep = "| --- | --- | --- | --- | --- |"
-            if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01"):
+            if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02"):
                 hdr += " Rule captured in session 1 |"
                 sep += " --- |"
             if agent == "claude":
@@ -131,12 +132,12 @@ def main():
                 tok = s["input_tokens"]
                 line = (f"| {ARM_NAME[s['arm']]} | {s['k']}/{s['n']} ({s['rate']:.0%}) | {s['ci'][0]:.0%}–{s['ci'][1]:.0%} | "
                         f"{'—' if p is None else f'{p:.3f}'} | {'—' if tok is None else f'{tok/1000:.0f}k'} |")
-                if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01"):
+                if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02"):
                     c = s["captured"]
                     line += f" {'—' if not c else f'{c[0]}/{c[1]}'} |"
                 if agent == "claude":
                     cst = s["cost_usd"]
-                    if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01") and s["s1_cost_usd"]:
+                    if case in ("cor01", "cor02", "cor03", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02") and s["s1_cost_usd"]:
                         cst = (cst or 0) + s["s1_cost_usd"]
                     line += f" {'—' if cst is None else f'${cst:.3f}'} |"
                 L.append(line)
@@ -148,7 +149,7 @@ def main():
     # ---------- chart (SVG, hand-drawn) ----------
     groups = []
     for agent in ("claude", "agy"):
-        for case in ("dec02", "dec03", "dec04", "stale04", "cor04", "cor05", "compact01", "compact02", "orch01", "cor01", "cor02", "cor03", "stale01", "stale02", "stale03", "neu01"):
+        for case in ("dec02", "dec03", "dec04", "stale04", "cor04", "cor05", "compact01", "compact02", "orch01", "orch02", "cor01", "cor02", "cor03", "stale01", "stale02", "stale03", "neu01"):
             ss = sorted([s for s in summary if s["agent"] == agent and s["case"] == case], key=lambda s: ARM_ORDER.index(s["arm"]))
             if ss:
                 groups.append((agent, case, ss))

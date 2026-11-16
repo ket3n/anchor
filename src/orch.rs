@@ -96,6 +96,13 @@ impl Orch {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.execute_batch(SCHEMA)?;
+        // v0.3.2: entries can be superseded (a reversed decision)
+        let has: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('entries') WHERE name='superseded_by'")?
+            .exists([])?;
+        if !has {
+            conn.execute_batch("ALTER TABLE entries ADD COLUMN superseded_by INTEGER")?;
+        }
         Ok(Some(Orch { conn }))
     }
 
@@ -140,7 +147,7 @@ impl Orch {
 
     fn episode_text(&self, id: &str) -> Result<String> {
         let goal: String = self.conn.query_row("SELECT goal FROM episodes WHERE id=?1", params![id], |r| r.get(0))?;
-        let mut st = self.conn.prepare("SELECT text FROM entries WHERE episode=?1 AND kind IN ('decision','delegation','outcome')")?;
+        let mut st = self.conn.prepare("SELECT text FROM entries WHERE episode=?1 AND superseded_by IS NULL AND kind IN ('decision','delegation','outcome')")?;
         let rest: Vec<String> = st.query_map(params![id], |r| r.get(0))?.collect::<Result<_, _>>()?;
         Ok(format!("{goal}\n{}", rest.join("\n")))
     }
@@ -202,7 +209,12 @@ impl Orch {
         Ok(())
     }
 
-    pub fn log(&self, episode: &str, kind: &str, text: &str, session: Option<&str>, author: &str) -> Result<()> {
+    pub fn log(&self, episode: &str, kind: &str, text: &str, session: Option<&str>, author: &str) -> Result<i64> {
+        self.log_superseding(episode, kind, text, session, author, None)
+    }
+
+    /// Log an entry; with `supersedes`, the earlier entry (e.g. a reversed decision) is retired.
+    pub fn log_superseding(&self, episode: &str, kind: &str, text: &str, session: Option<&str>, author: &str, supersedes: Option<i64>) -> Result<i64> {
         if !matches!(kind, "decision" | "delegation" | "report" | "note" | "outcome") {
             bail!("kind must be decision | delegation | report | note | outcome | end");
         }
@@ -210,8 +222,15 @@ impl Orch {
             "INSERT INTO entries(episode, ts, kind, session, author, text) VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
             params![episode, now(), kind, session, author, short(text, 1500)],
         )?;
+        let id = self.conn.last_insert_rowid();
+        if let Some(old) = supersedes {
+            let n = self.conn.execute("UPDATE entries SET superseded_by=?2 WHERE id=?1 AND episode=?3", params![old, id, episode])?;
+            if n == 0 {
+                bail!("no entry #{old} in {episode}");
+            }
+        }
         self.conn.execute("UPDATE episodes SET updated_at=?2 WHERE id=?1", params![episode, now()])?;
-        Ok(())
+        Ok(id)
     }
 
     pub fn end(&self, episode: &str, outcome: &str) -> Result<()> {
@@ -350,14 +369,14 @@ impl Orch {
         }
         for (kind, title, n) in [("decision", "Decisions", 8), ("delegation", "Delegated", 8), ("report", "Latest reports", 6), ("note", "Notes", 4), ("outcome", "Outcome", 2)] {
             let mut st = self.conn.prepare(&format!(
-                "SELECT text, session FROM entries WHERE episode=?1 AND kind='{kind}' ORDER BY ts DESC LIMIT {n}"
+                "SELECT id, text, session FROM entries WHERE episode=?1 AND kind='{kind}' AND superseded_by IS NULL ORDER BY id DESC LIMIT {n}"
             ))?;
-            let rows: Vec<(String, Option<String>)> = st.query_map(params![episode], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+            let rows: Vec<(i64, String, Option<String>)> = st.query_map(params![episode], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
             if !rows.is_empty() {
                 s.push_str(&format!("{title}:\n"));
-                for (text, sess) in rows.iter().rev() {
+                for (id, text, sess) in rows.iter().rev() {
                     let who = sess.as_ref().map(|x| format!("[{}] ", x.chars().take(8).collect::<String>())).unwrap_or_default();
-                    s.push_str(&format!("- {who}{}\n", short(text, 240)));
+                    s.push_str(&format!("- #{id} {who}{}\n", short(text, 240)));
                 }
             }
         }
@@ -412,12 +431,13 @@ pub fn tools() -> Vec<Value> {
             "description": "The current state of an orchestration episode: goal, sessions and their last activity, decisions, delegations, worker reports, and the user's relevant patterns. Use it before deciding what to do next, or when unsure what was already done.",
             "inputSchema": {"type": "object", "properties": {"episode": {"type": "string"}}}}),
         json!({"name": "orchestration_log",
-            "description": "Record orchestration state so a later orchestrator can continue: kind decision (what was decided and why), delegation (what you asked which session to do), report (a session's result), note, or end (close the episode with its outcome). Link a session to the episode with kind \"link\" and `session` (its id) and optional `label`.",
+            "description": "Record orchestration state so a later orchestrator can continue: kind decision (what was decided and why), delegation (what you asked which session to do), report (a session's result), note, or end (close the episode with its outcome). Link a session to the episode with kind \"link\" and `session` (its id) and optional `label`. When a decision changes, log the new one with `supersedes` = the old entry's #number, so the old one is no longer shown.",
             "inputSchema": {"type": "object", "properties": {
                 "kind": {"type": "string", "enum": ["decision", "delegation", "report", "note", "end", "link"]},
                 "text": {"type": "string"},
                 "session": {"type": "string", "description": "The session this is about (id)."},
                 "label": {"type": "string", "description": "A short name for a linked session."},
+                "supersedes": {"type": "integer", "description": "The #number of an earlier entry this one replaces (e.g. a reversed decision)."},
                 "episode": {"type": "string", "description": "Episode id; defaults to the only open one."}
             }, "required": ["kind"]}}),
         json!({"name": "pattern",
@@ -485,8 +505,9 @@ pub fn call(name: &str, args: &Value) -> Result<String> {
                 }
                 k => {
                     let text = s("text").ok_or_else(|| anyhow!("`text` is required"))?;
-                    o.log(&e, k, &text, s("session").as_deref(), "orchestrator")?;
-                    Ok(format!("logged {k} in {e}"))
+                    let sup = args.get("supersedes").and_then(|v| v.as_i64());
+                    let id = o.log_superseding(&e, k, &text, s("session").as_deref(), "orchestrator", sup)?;
+                    Ok(format!("logged {k} #{id} in {e}{}", sup.map(|x| format!(" (replaces #{x})")).unwrap_or_default()))
                 }
             }
         }
