@@ -269,3 +269,29 @@ fn a_reversed_decision_replaces_the_old_one() {
     let (bad, err) = mcp(&e, &e.plain, "orchestration_log", json!({"kind": "decision", "text": "x", "supersedes": 9999}));
     assert!(err && bad.contains("no entry #9999"), "{bad}");
 }
+
+#[test]
+fn the_users_words_to_the_orchestrator_are_recorded_verbatim() {
+    let e = env();
+    // the first request arrives before any store exists; at binding, Anchor reads it from the transcript
+    let tr = e.plain.join("t.jsonl");
+    std::fs::write(&tr, format!("{}\n{}\n",
+        json!({"type": "user", "message": {"role": "user", "content": "You are coordinating api, web and docs for me. docs may push the changelog straight to main."}}),
+        json!({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content": "x"}]}}))).unwrap();
+    let args = json!({"goal": "OAuth migration across api web docs"});
+    let (text, _) = mcp(&e, &e.plain, "orchestration_start", args.clone());
+    hook(&e, "PostToolUse", &e.plain, "orc1", json!({"tool_name": "mcp__anchor__orchestration_start", "tool_input": args,
+        "tool_response": [{"type": "text", "text": text}], "transcript_path": tr}));
+    // later messages in the orchestrator are recorded as they come, newest last
+    let ack = ctx_text(&hook(&e, "UserPromptSubmit", &e.plain, "orc1", json!({"prompt": "Change of plan: docs may NOT push to main any more, use a PR."})));
+    assert!(ack.contains("recorded verbatim") && ack.contains("Do not log it again"), "{ack}");
+    let restored = ctx_text(&hook(&e, "SessionStart", &e.plain, "orc1", json!({"source": "compact"})));
+    let a = restored.find("docs may push the changelog straight to main").expect(&restored);
+    let b = restored.find("docs may NOT push to main any more").expect(&restored);
+    assert!(a < b, "oldest first, so the later message reads as the current rule: {restored}");
+    assert!(restored.contains("later messages override earlier ones"));
+
+    // a new session asking to pick up coordination gets the closest episode's state injected at once
+    let inj = ctx_text(&hook(&e, "UserPromptSubmit", &e.repo, "fresh", json!({"prompt": "You're picking up coordination of the OAuth migration workers"})));
+    assert!(inj.contains("docs may NOT push to main any more") && inj.contains("resume="), "{inj}");
+}

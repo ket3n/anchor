@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS flags (session TEXT NOT NULL, flag TEXT NOT NULL, PRI
 
 const AUTHORITY: &str = "Authority: you manage these sessions for the user. Act on CONFIRMED patterns; treat INFERRED \
 patterns as suggestions; ask the user before anything new, risky or irreversible (deleting, pushing, migrations, \
-spending, merging). Log decisions, delegations and the outcome with `orchestration_log` so a later orchestrator \
-can continue.";
+spending, merging). The user's own messages to the orchestrator are recorded automatically; log only what they \
+did not say (your decisions, delegations, the outcome) with `orchestration_log`.";
 
 const BUDGET_CHARS: usize = 3500;
 
@@ -147,7 +147,7 @@ impl Orch {
 
     fn episode_text(&self, id: &str) -> Result<String> {
         let goal: String = self.conn.query_row("SELECT goal FROM episodes WHERE id=?1", params![id], |r| r.get(0))?;
-        let mut st = self.conn.prepare("SELECT text FROM entries WHERE episode=?1 AND superseded_by IS NULL AND kind IN ('decision','delegation','outcome')")?;
+        let mut st = self.conn.prepare("SELECT text FROM entries WHERE episode=?1 AND superseded_by IS NULL AND kind IN ('decision','delegation','outcome','user')")?;
         let rest: Vec<String> = st.query_map(params![id], |r| r.get(0))?.collect::<Result<_, _>>()?;
         Ok(format!("{goal}\n{}", rest.join("\n")))
     }
@@ -163,7 +163,8 @@ impl Orch {
         for (id, g, status) in ids {
             let t = Self::terms(&self.episode_text(&id)?);
             let overlap = q.intersection(&t).count() as f64;
-            let words = if q.is_empty() { 0.0 } else { overlap / (q.len() as f64).max(3.0) };
+            // a long natural-language request should not dilute the match: normalise by at most 6 terms
+            let words = if q.is_empty() { 0.0 } else { overlap / (q.len().clamp(3, 6) as f64) };
             let mut st = self.conn.prepare(
                 "SELECT m.session, s.repo FROM members m LEFT JOIN sessions s ON s.id = m.session WHERE m.episode=?1",
             )?;
@@ -215,7 +216,7 @@ impl Orch {
 
     /// Log an entry; with `supersedes`, the earlier entry (e.g. a reversed decision) is retired.
     pub fn log_superseding(&self, episode: &str, kind: &str, text: &str, session: Option<&str>, author: &str, supersedes: Option<i64>) -> Result<i64> {
-        if !matches!(kind, "decision" | "delegation" | "report" | "note" | "outcome") {
+        if !matches!(kind, "decision" | "delegation" | "report" | "note" | "outcome" | "user") {
             bail!("kind must be decision | delegation | report | note | outcome | end");
         }
         self.conn.execute(
@@ -359,6 +360,8 @@ impl Orch {
             for (id, role, label, repo, first, last, seen) in &mem {
                 let ago = seen.map(|x| format!("{}m ago", (t - x).max(0) / 60)).unwrap_or_else(|| "not seen yet".into());
                 let name = label.clone().unwrap_or_else(|| id.chars().take(8).collect());
+                // the orchestrator's own messages are listed under "What the user told the orchestrator"
+                let (first, last) = if role == "orchestrator" { (&None, &None) } else { (first, last) };
                 s.push_str(&format!(
                     "- {name} [{role}] {} · {ago}{}{}\n",
                     repo.as_deref().unwrap_or("?"),
@@ -367,7 +370,7 @@ impl Orch {
                 ));
             }
         }
-        for (kind, title, n) in [("decision", "Decisions", 8), ("delegation", "Delegated", 8), ("report", "Latest reports", 6), ("note", "Notes", 4), ("outcome", "Outcome", 2)] {
+        for (kind, title, n) in [("user", "What the user told the orchestrator (oldest first; later messages override earlier ones)", 10), ("decision", "Decisions", 8), ("delegation", "Delegated", 8), ("report", "Latest reports", 6), ("note", "Notes", 4), ("outcome", "Outcome", 2)] {
             let mut st = self.conn.prepare(&format!(
                 "SELECT id, text, session FROM entries WHERE episode=?1 AND kind='{kind}' AND superseded_by IS NULL ORDER BY id DESC LIMIT {n}"
             ))?;
@@ -555,6 +558,31 @@ pub fn all_patterns(o: &Orch) -> Result<Vec<PatternRow>> {
 
 const MANAGE_TOOLS: &[&str] = &["SendMessage", "ListAgents"];
 
+/// The user's latest typed message in this session, from the hook's transcript (JSONL). Tool results are skipped.
+fn last_user_message(input: &Value) -> Option<String> {
+    let path = input.get("transcript_path")?.as_str()?;
+    let body = std::fs::read_to_string(path).ok()?;
+    for line in body.lines().rev() {
+        let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+        if v.get("type").and_then(|t| t.as_str()) != Some("user") {
+            continue;
+        }
+        let c = &v["message"]["content"];
+        let text = match c {
+            Value::String(t) => Some(t.clone()),
+            Value::Array(parts) => parts
+                .iter()
+                .find(|p| p.get("type").and_then(|t| t.as_str()) == Some("text"))
+                .and_then(|p| p.get("text").and_then(|t| t.as_str()).map(String::from)),
+            _ => None,
+        };
+        if let Some(t) = text.filter(|t| !t.trim().is_empty() && !t.trim_start().starts_with('<')) {
+            return Some(t);
+        }
+    }
+    None
+}
+
 /// Does the user's prompt ask for coordination of sessions/workers? Word-based, no model.
 pub fn coordination_intent(p: &str) -> bool {
     let l = p.to_lowercase();
@@ -586,6 +614,14 @@ pub fn hook(event: &str, input: &Value, repo: Option<&std::path::Path>, project_
             o.link(&c[1], session, "orchestrator", None)?;
             o.conn.execute("UPDATE members SET role='orchestrator' WHERE episode=?1 AND session=?2", params![&c[1], session])?;
             o.touch_session(session, input.get("cwd").and_then(|v| v.as_str()), repo.map(|r| r.to_string_lossy()).as_deref(), None)?;
+            // the prompt that asked for coordination was submitted before this session was bound: record it now
+            let last: Option<String> = last_user_message(input).or(o.conn.query_row(
+                "SELECT text FROM evidence WHERE session=?1 ORDER BY id DESC LIMIT 1", params![session], |r| r.get(0)).optional()?);
+            let already: bool = o.conn.query_row(
+                "SELECT COUNT(*) > 0 FROM entries WHERE episode=?1 AND kind='user'", params![&c[1]], |r| r.get(0))?;
+            if let (Some(t), false) = (last, already) {
+                o.log(&c[1], "user", &t, None, "user")?;
+            }
         }
         return Ok(None);
     }
@@ -612,7 +648,16 @@ pub fn hook(event: &str, input: &Value, repo: Option<&std::path::Path>, project_
             None => project_flag_once(),
         };
         if first {
-            return Ok(Some("Anchor: this request is about coordinating other sessions or workers. Use the orchestration memory: call `orchestration_start` with the goal (it finds or resumes past orchestrations), then log decisions, delegations and worker reports with `orchestration_log`.".into()));
+            if let Some(o) = &store {
+                o.add_evidence(session, None, "intent", p)?;
+                if let Some((id, _, _, _)) = o.similar(p, &[], &[])?.into_iter().next() {
+                    return Ok(Some(format!(
+                        "{}\nAnchor: this looks like the orchestration above. To continue it as orchestrator, call `orchestration_start` with resume=\"{id}\".",
+                        o.briefing(&id, "closest past orchestration for this request")?
+                    )));
+                }
+            }
+            return Ok(Some("Anchor: this request is about coordinating other sessions or workers. Use the orchestration memory: call `orchestration_start` with the goal (it finds or resumes past orchestrations); the user's messages are then recorded automatically, and you log your own decisions and delegations with `orchestration_log`.".into()));
         }
     }
 
@@ -638,11 +683,21 @@ pub fn hook(event: &str, input: &Value, repo: Option<&std::path::Path>, project_
              delegations and anything decided but not yet logged; Anchor restores the logged state after compaction."
         ))),
         ("UserPromptSubmit", _) => {
+            // in the orchestrator, the user's words are the state itself (decisions, relayed reports): keep them verbatim
+            let mut ack = None;
+            if role == "orchestrator"
+                && let Some(p) = prompt.filter(|p| !p.trim_start().starts_with('/') && p.trim().chars().count() >= 8)
+            {
+                let n = o.log(&episode, "user", p, None, "user")?;
+                ack = Some(format!(
+                    "Anchor: this message is recorded verbatim in orchestration {episode} as #{n}. Do not log it again; log only a decision or delegation of your own, if any."
+                ));
+            }
             // the user's own words to an orchestrated session are evidence of how they orchestrate
             if let Some(p) = prompt {
                 o.add_evidence(session, Some(&episode), if role == "orchestrator" { "to_orchestrator" } else { "to_worker" }, p)?;
             }
-            Ok(None)
+            Ok(ack)
         }
         ("PostToolUse", "orchestrator") if tool == "SendMessage" => {
             let ti = input.get("tool_input").cloned().unwrap_or(Value::Null);

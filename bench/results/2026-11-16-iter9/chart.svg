@@ -1,0 +1,33 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 230' font-family='system-ui, sans-serif' font-size='12'>
+<rect width='100%' height='100%' fill='#ffffff'/>
+<text x='16' y='28' font-size='15' font-weight='600' fill='#1f2328'>Task success by memory setup (dot = rate, whisker = 95% CI)</text>
+<text x='16' y='66' font-weight='600' fill='#1f2328'>Claude · ORCH-02</text>
+<text x='220' y='91.0' text-anchor='end' fill='#1f2328'>No memory (native auto-memory off)</text>
+<line x1='230' x2='690' y1='87.0' y2='87.0' stroke='#eaeef2'/>
+<line x1='230.0' x2='455.3540093858396' y1='87.0' y2='87.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='230.0' cy='87.0' r='5' fill='#d1242f'/>
+<text x='698' y='91.0' fill='#57606a'>0/4</text>
+<text x='220' y='113.0' text-anchor='end' fill='#1f2328'>Claude native memory (baseline)</text>
+<line x1='230' x2='690' y1='109.0' y2='109.0' stroke='#eaeef2'/>
+<line x1='230.0' x2='455.3540093858396' y1='109.0' y2='109.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='230.0' cy='109.0' r='5' fill='#d1242f'/>
+<text x='698' y='113.0' fill='#57606a'>0/4</text>
+<text x='220' y='135.0' text-anchor='end' fill='#1f2328'>CLAUDE.md (hand-written)</text>
+<line x1='230' x2='690' y1='131.0' y2='131.0' stroke='#eaeef2'/>
+<line x1='230.0' x2='455.3540093858396' y1='131.0' y2='131.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='230.0' cy='131.0' r='5' fill='#d1242f'/>
+<text x='698' y='135.0' fill='#57606a'>0/4</text>
+<text x='220' y='157.0' text-anchor='end' fill='#1f2328'>Mem0 (platform)</text>
+<line x1='230' x2='690' y1='153.0' y2='153.0' stroke='#eaeef2'/>
+<line x1='464.6459906141604' x2='690.0' y1='153.0' y2='153.0' stroke='#d1242f' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='153.0' r='5' fill='#d1242f'/>
+<text x='698' y='157.0' fill='#57606a'>4/4</text>
+<text x='220' y='179.0' text-anchor='end' fill='#1f2328' font-weight="600">Anchor</text>
+<line x1='230' x2='690' y1='175.0' y2='175.0' stroke='#eaeef2'/>
+<line x1='464.6459906141604' x2='690.0' y1='175.0' y2='175.0' stroke='#0969da' stroke-width='2' opacity='0.5'/>
+<circle cx='690.0' cy='175.0' r='5' fill='#0969da'/>
+<text x='698' y='179.0' fill='#57606a'>4/4</text>
+<text x='230' y='218' text-anchor='middle' fill='#57606a'>0%</text>
+<text x='460.0' y='218' text-anchor='middle' fill='#57606a'>50%</text>
+<text x='690' y='218' text-anchor='middle' fill='#57606a'>100%</text>
+</svg>

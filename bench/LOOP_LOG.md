@@ -261,3 +261,15 @@ what changed. Results live in bench/results/.
 - NEW case ORCH-02: ORCH-01 plus a later reversal (docs may NOT push to main any more) and a second, unrelated
   orchestration (billing workers) in the same project; the new session must answer WEB: GO and DOCS: DENY.
 - Iteration 9 STARTED: orch02 × A0,M,B,E × 4 (scratchpad/iter9, ANCHOR_BIN=$S/bin/anchor-iter9) and × C4 × 4 (iter9-c4).
+- Iteration 9 COMPLETE (20/20, ORCH-02). Results: bench/results/2026-11-16-iter9. E 4/4 ($0.421), C4 4/4 ($0.254),
+  M 0/4 ($0.361), B 0/4 ($0.321), A0 0/4 ($0.234); E vs M/B/A0 p=0.029. All failures WAIT/DENY (no memory of the
+  api report). Anchor costs 66% more than Mem0: every user message cost an extra orchestration_log turn, and the
+  new session needed 4 turns (ToolSearch + context lookups) against Mem0's 1.
+- v0.3.3 (cost): in an orchestrator session the user's messages are recorded verbatim (kind "user", oldest first,
+  "later messages override earlier ones"), the first request is read from the transcript at binding, and each
+  recorded message is acknowledged so Claude does not log it again; a coordination request in a new session gets
+  the closest episode's state injected directly (no tool round trip). Matching counts user entries and normalises
+  by at most 6 terms. Test added (8 orchestration tests). Smoke ORCH-02: $0.42 -> $0.36, final session 4 turns ->
+  1 ($0.038 -> $0.025), orchestration_log calls 6 -> 3.
+- Iteration 10 STARTED: orch02 × E × 4 (ANCHOR_BIN=$S/bin/anchor-iter10, scratchpad/iter10) and × C4 × 4
+  (scratchpad/iter10-c4), same window. M/B/A0 not re-run: 0/4 on ORCH-01 and ORCH-02, nothing they use changed.
