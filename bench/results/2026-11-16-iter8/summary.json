@@ -1,0 +1,96 @@
+[
+  {
+    "agent": "claude",
+    "case": "orch01",
+    "arm": "A0",
+    "k": 0,
+    "n": 4,
+    "rate": 0.0,
+    "ci": [
+      0.0,
+      0.48990002040399916
+    ],
+    "captured": null,
+    "input_tokens": 71894.0,
+    "s1_input_tokens": 81413.0,
+    "cost_usd": 0.0374465,
+    "s1_cost_usd": 0.099802275,
+    "tests_pass": 4,
+    "p_vs_anchor": 0.02857142857142857
+  },
+  {
+    "agent": "claude",
+    "case": "orch01",
+    "arm": "M",
+    "k": 0,
+    "n": 4,
+    "rate": 0.0,
+    "ci": [
+      0.0,
+      0.48990002040399916
+    ],
+    "captured": null,
+    "input_tokens": 80085.75,
+    "s1_input_tokens": 102641.0,
+    "cost_usd": 0.052187874999999995,
+    "s1_cost_usd": 0.16288789999999997,
+    "tests_pass": 4,
+    "p_vs_anchor": 0.02857142857142857
+  },
+  {
+    "agent": "claude",
+    "case": "orch01",
+    "arm": "B",
+    "k": 0,
+    "n": 4,
+    "rate": 0.0,
+    "ci": [
+      0.0,
+      0.48990002040399916
+    ],
+    "captured": null,
+    "input_tokens": 63617.0,
+    "s1_input_tokens": 90460.5,
+    "cost_usd": 0.042270975,
+    "s1_cost_usd": 0.149827075,
+    "tests_pass": 4,
+    "p_vs_anchor": 0.02857142857142857
+  },
+  {
+    "agent": "claude",
+    "case": "orch01",
+    "arm": "E",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 65604.25,
+    "s1_input_tokens": 171054.5,
+    "cost_usd": 0.038031675,
+    "s1_cost_usd": 0.178699725,
+    "tests_pass": 4
+  },
+  {
+    "agent": "claude",
+    "case": "orch01",
+    "arm": "C4",
+    "k": 4,
+    "n": 4,
+    "rate": 1.0,
+    "ci": [
+      0.5100999795960008,
+      1.0
+    ],
+    "captured": null,
+    "input_tokens": 48308.25,
+    "s1_input_tokens": 79272.75,
+    "cost_usd": 0.029643575,
+    "s1_cost_usd": 0.1296928,
+    "tests_pass": 4,
+    "p_vs_anchor": 1.0
+  }
+]

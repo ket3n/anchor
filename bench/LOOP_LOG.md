@@ -246,3 +246,13 @@ what changed. Results live in bench/results/.
   returns the closest one's state. Test added (tests/orchestration.rs, 6 tests). Smoke re-run: E success, $0.19.
 - v0.3.1. Iteration 8 STARTED: orch01 × A0,M,B,E × 4 (scratchpad/iter8, ANCHOR_BIN=$S/bin/anchor-iter8) and
   × C4 × 4 (scratchpad/iter8-c4).
+- Iteration 8 COMPLETE (A0,M,B,E 16/16; C4 4/4). Results: bench/results/2026-11-16-iter8 (ORCH-01).
+  E 4/4 ($0.217), C4 4/4 ($0.159), M 0/4 ($0.215), B 0/4 ($0.192), A0 0/4 ($0.137); E vs M/B/A0 Fisher p=0.029.
+  Failures are genuine: M's built-in memory saved no orchestration decision (only the seeded notes); B's CLAUDE.md was
+  never updated (the agent said it found no record); all three gave the cautious guess WAIT/DENY. Mem0 passes by
+  capturing the conversation automatically; Anchor through orchestration memory (episode bound, decisions and the
+  relayed report logged, closest-episode state shown to the new session).
+  E costs 37% more than C4 here (66k vs 48k input tokens: the orchestration_start / log calls and their schemas).
+- Next: ORCH-02 (harder): a decision is reversed later in the conversation (docs push permission revoked) and a
+  second, unrelated orchestration exists in the same project. Tests whether stale decisions are kept apart.
+  Known Anchor gap for it: orchestration entries have no supersede; a reversed decision shows both. Fix first.
