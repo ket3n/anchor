@@ -306,3 +306,17 @@ what changed. Results live in bench/results/.
   (`--runs 8 --arms E` in iter12 with ANCHOR_BIN=$S/bin/anchor-iter12; `--runs 8 --arms C4` in iter12-c4).
 - Iteration 13 COMPLETE (ORCH-03 runs 4-7 for E and C4): totals E 8/8 ($0.297), C4 3/8 ($0.226); E vs C4 p=0.026,
   E vs M/A0 p=0.002. First significant win over Mem0: Anchor applies a habit the user showed but never stated.
+- Cost analysis ORCH-03 (E $0.297 vs C4 $0.226): E's extra turns are orchestration_log calls restating the
+  instruction the user relays (already recorded verbatim), and in session 3 ToolSearch + orchestration_context
+  because Anchor only suggested resuming. Matching scores for the follow-up sessions were 0.83 and 1.33; an
+  unrelated goal started a new episode.
+- v0.3.5 (uncommitted until measured): a coordination request matching an OPEN episode at >= 0.8 continues it
+  automatically (session bound, message recorded, briefing injected; `new: true` escape hatch); closed or weaker
+  matches are only offered. The acknowledgement says instructions to workers in the user's message count as
+  delegations already. Tests updated (8 orchestration tests green).
+- Iteration 14 STARTED: orch03 and orch02 × E × 4 (ANCHOR_BIN=$S/bin/anchor-iter14, scratchpad/iter14).
+- Iteration 14 COMPLETE (v0.3.5 candidate, E only): ORCH-03 4/4 mean $0.320 (was $0.297), ORCH-02 4/4 mean $0.393
+  (was $0.360). Accuracy held, cost went UP: auto-resume injects the full briefing into each follow-up session, more
+  tokens than the tool calls it saves. Reverted (not committed); Anchor stays at v0.3.4.
+  Remaining cost gap vs Mem0 on ORCH cases (~25-30%) is mostly Claude's own orchestration_log calls; next idea to
+  test: a compact briefing (decisions + last user messages only) for follow-up sessions instead of the full one.
